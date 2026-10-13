@@ -38,21 +38,22 @@ function Feeder({ surfaceId, operations }: { surfaceId: string; operations: Oper
 /** Pushes the latest known state of each shown device into the surface: once
  *  on mount (a card re-rendered from chat history may be older than what's
  *  known now) and on every later change. */
-function LiveTiles({ surfaceId, deviceIds, live }: { surfaceId: string; deviceIds: string[]; live: LiveDevices }) {
+function LiveTiles(props: { surfaceId: string; deviceIds: string[]; live: LiveDevices; title: string }) {
+  const { surfaceId, deviceIds, live, title } = props;
   const { processMessages } = useA2UIActions();
   const key = deviceIds.join(",");
   useEffect(() => {
     const ids = key.split(",");
     const push = (device: DeviceResult) => {
       const index = ids.indexOf(device.deviceId);
-      if (index >= 0) processMessages([updateTile(surfaceId, index, device)] as never);
+      if (index >= 0) processMessages([updateTile(surfaceId, index, device, title)] as never);
     };
     for (const id of ids) {
       const known = live.get(id);
       if (known) push(known);
     }
     return live.subscribe(push);
-  }, [processMessages, surfaceId, key, live]);
+  }, [processMessages, surfaceId, key, live, title]);
   return null;
 }
 
@@ -67,11 +68,13 @@ export function Surface(props: {
   operations: Operation[];
   /** Device ids in tile order, for live updates; omit for scene surfaces. */
   deviceIds?: string[];
+  /** The card's title (live tiles hide a room equal to it). */
+  title?: string;
   live: LiveDevices;
   /** Runs a card's action; resolves to an error message to show, if any. */
   onAction: (action: UserAction) => Promise<string | undefined>;
 }) {
-  const { surfaceId, operations, deviceIds, live, onAction } = props;
+  const { surfaceId, operations, deviceIds, live, onAction, title = "" } = props;
   const [message, setMessage] = useState<string>();
   return (
     <div data-testid="surface" data-surface-id={surfaceId}>
@@ -85,7 +88,7 @@ export function Surface(props: {
         }}
       >
         <Feeder surfaceId={surfaceId} operations={operations} />
-        {deviceIds && <LiveTiles surfaceId={surfaceId} deviceIds={deviceIds} live={live} />}
+        {deviceIds && <LiveTiles surfaceId={surfaceId} deviceIds={deviceIds} live={live} title={title} />}
         <RendererOrError surfaceId={surfaceId} />
       </A2UIProvider>
       {message && (

@@ -52,7 +52,8 @@ export function describeState(state: DeviceState): string {
   return parts.filter(Boolean).join(" · ");
 }
 
-export function tileModel(device: DeviceResult): TileModel {
+/** `hideRoom`: the card's title already names the room. */
+export function tileModel(device: DeviceResult, hideRoom = false): TileModel {
   const { state } = device;
   // Rule 2 of policy.ts, mirrored in the UI: a device with a lock, door,
   // valve or security capability gets no controls on its tile. (A click would
@@ -61,7 +62,7 @@ export function tileModel(device: DeviceResult): TileModel {
   return {
     deviceId: device.deviceId,
     label: device.label,
-    room: device.room ?? "",
+    room: hideRoom ? "" : (device.room ?? ""),
     stateText: describeState(state),
     color:
       state.hue !== undefined && state.saturation !== undefined
@@ -113,7 +114,7 @@ function surface(surfaceId: string, components: unknown[], data: unknown): Opera
 }
 
 export function deviceSurface(surfaceId: string, title: string, devices: DeviceResult[]): Operation[] {
-  return surface(surfaceId, DEVICE_COMPONENTS, { title, items: devices.map(tileModel) });
+  return surface(surfaceId, DEVICE_COMPONENTS, { title, items: devices.map((d) => tileModel(d, d.room === title)) });
 }
 
 export function sceneSurface(surfaceId: string, scenes: SceneSummary[]): Operation[] {
@@ -121,6 +122,9 @@ export function sceneSurface(surfaceId: string, scenes: SceneSummary[]): Operati
 }
 
 /** Replace one tile's data (a live update). */
-export function updateTile(surfaceId: string, index: number, device: DeviceResult): Operation {
-  return { version: VERSION, updateDataModel: { surfaceId, path: `/items/${index}`, value: tileModel(device) } };
+export function updateTile(surfaceId: string, index: number, device: DeviceResult, title = ""): Operation {
+  return {
+    version: VERSION,
+    updateDataModel: { surfaceId, path: `/items/${index}`, value: tileModel(device, device.room === title) },
+  };
 }

@@ -38,6 +38,9 @@ describe("tile models", () => {
   it("offers controls only where the policy allows them", () => {
     expect(tileModel(lamp)).toMatchObject({ canToggle: true, canDim: true, isOn: false, level: 40, color: "" });
     expect(tileModel(bulb).color).toBe("hsl(0 100% 50%)");
+    // A room card doesn't repeat its room on every tile.
+    expect(tileModel(lamp, true).room).toBe("");
+    expect(tileModel(lamp).room).toBe("Office");
     expect(tileModel(lock)).toMatchObject({ canToggle: false, canDim: false });
     // A valve that also exposes switch still gets no toggle (policy.ts rule 2).
     expect(tileModel(valve)).toMatchObject({ canToggle: false, note: "Controlled through the chat, with confirmation." });

@@ -72,6 +72,7 @@ function LevelSlider({ level, label, onCommit }: { level: number; label: string;
       max={100}
       value={value}
       aria-label={`${label} level`}
+      style={{ width: "100%", margin: 0, boxSizing: "border-box" }}
       onChange={(e) => setValue(Number(e.target.value))}
       onPointerUp={() => onCommit(value)}
       onKeyUp={() => onCommit(value)}
@@ -95,11 +96,11 @@ export const renderers: CatalogRenderers<typeof definitions> = {
     const color = str(p.color);
     return (
       <div style={tile} data-testid="device-tile" data-label={label}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, minWidth: 0 }} title={label}>
           {color && (
             <span aria-hidden style={{ width: 10, height: 10, borderRadius: 5, background: color, flex: "none" }} />
           )}
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{label}</span>
         </div>
         {str(p.room) && <div style={muted}>{str(p.room)}</div>}
         {str(p.stateText) && <div style={{ fontSize: 13 }} data-testid="tile-state">{str(p.stateText)}</div>}

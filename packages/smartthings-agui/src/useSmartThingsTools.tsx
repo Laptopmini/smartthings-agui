@@ -53,6 +53,7 @@ function DevicesSurface(props: { id: string; title: string; devices: DeviceResul
       surfaceId={id}
       operations={operations}
       deviceIds={devices.map((d) => d.deviceId)}
+      title={title}
       live={live}
       onAction={(a) => runCardAction(tools, a)}
     />
