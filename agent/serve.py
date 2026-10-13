@@ -11,8 +11,8 @@ Usage:
     uv run python serve.py --scripted   # deterministic test double, no model
 
 Environment (any OpenAI-compatible endpoint). The defaults are the setup
-that was tested; local models (e.g. LM Studio) are a later goal
-(planned):
+that was tested; local models (e.g. LM Studio) should work the
+same way but haven't been tested yet:
     AGENT_API_BASE   default https://api.example.com/v1
     AGENT_API_KEY    the endpoint's key (required)
     AGENT_MODEL      default example-model

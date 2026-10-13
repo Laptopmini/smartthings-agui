@@ -1,4 +1,4 @@
-"""How earlier tool calls and results reach the model."""
+"""How earlier tool calls and results reach the model (router.py, problem 3)."""
 
 import sys
 from pathlib import Path
@@ -27,8 +27,8 @@ RESULT = ToolMessage(id="t1", role="tool", tool_call_id="call_1", content='{"sta
 
 
 def test_stock_converter_turns_tool_history_into_text() -> None:
-    """Pins the stock conversion on llama-index-protocols-ag-ui 0.5.0; if this fails, upstream
-    changed and the converter in router.py may be removable."""
+    """Pins the stock conversion on llama-index-protocols-ag-ui 0.5.0. If this
+    fails, upstream changed and the converter in router.py may be removable."""
     call = ag_ui_message_to_llama_index_message(CALL)
     result = ag_ui_message_to_llama_index_message(RESULT)
     assert "<tool_call><name>set_level</name>" in call.content

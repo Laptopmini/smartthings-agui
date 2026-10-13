@@ -50,7 +50,7 @@ function toIdList(value: unknown): string[] {
 }
 
 /** Every argument arrives as a string from the LlamaIndex router
- *  and may arrive typed from other agents. */
+ *  (see describeSchema) and may arrive typed from other agents. */
 function toNumber(name: string, value: unknown): number {
   const n = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
   if (typeof n !== "number" || Number.isNaN(n)) throw new PolicyError(`${name} must be a number; got ${JSON.stringify(value)}.`);
@@ -170,7 +170,7 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
         properties: {
           deviceId,
           // Allowed values repeated in prose: the enum doesn't survive the
-          // LlamaIndex router.
+          // LlamaIndex router (see describeSchema).
           state: { type: "string", enum: ["on", "off"], description: "state (one of: on, off)" },
         },
         required: ["deviceId", "state"],

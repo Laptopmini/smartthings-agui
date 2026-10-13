@@ -24,7 +24,8 @@ export function toolName(capability: string, command: string): string {
  *  The LlamaIndex AG-UI router (llama-index-protocols-ag-ui 0.5.0) rebuilds
  *  every frontend-tool parameter as a plain string, dropping `enum`, `type`,
  *  `minimum` and `maximum`, but it keeps `description`. Repeating the
- *  constraints in prose is what still reaches the model. Pinned by agent/tests/test_dynamic_tool_schema.py.
+ *  constraints in prose is what still reaches the model. Pinned by
+ *  agent/tests/test_dynamic_tool_schema.py.
  */
 export function describeSchema(schema: JsonSchema): string {
   const parts: string[] = [];
@@ -113,7 +114,7 @@ export function jsonSchemaParameters<T extends Record<string, unknown>>(schema: 
  *  Covers what models get wrong in practice: a missing or unknown command,
  *  argument count, primitive type, enum, and numeric range. Strings that hold
  *  numbers or JSON are coerced first, because the LlamaIndex router turns
- *  every frontend-tool parameter into a string.
+ *  every frontend-tool parameter into a string (see describeSchema).
  *  Returns the coerced arguments, or throws with a message meant for the model.
  */
 export function validateArguments(definition: CapabilityDefinition, command: string, args: unknown[]): unknown[] {

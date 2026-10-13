@@ -41,7 +41,7 @@ def _call(name: str, kwargs: dict) -> ChatMessage:
 def _is_tool_result(message: ChatMessage) -> bool:
     # Our router sends tool results as `tool` messages; the stock router (used
     # in tests that pin upstream behaviour) sends them as *user* messages
-    # carrying `tool_call_id`. Accept both.
+    # carrying `tool_call_id` (see router.py). Accept both.
     return message.role == MessageRole.TOOL or "tool_call_id" in message.additional_kwargs
 
 

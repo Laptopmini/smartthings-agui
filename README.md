@@ -38,6 +38,8 @@ SmartThings capabilities are registered with CopilotKit as **frontend tools**: t
 | `confirm_command` | Locks, doors, garage doors, valves and security systems. Off by default; asks the person before anything happens. |
 | `run_scene` | Runs a scene after the person confirms. |
 
+More detail (the frontend-tool loop, the cards, sign-in, the agent's router fixes, SmartThings behaviours to expect): [docs/how-it-works.md](docs/how-it-works.md).
+
 ## Security model
 
 An agent unlocking a door is the failure that matters, so:
@@ -127,9 +129,9 @@ Not yet verified:
 - Real hardware, `run_scene` against real scenes, and capability versions other than 1.
 - Other browsers and headed mode (only headless Chromium was used); mobile layouts.
 
-## Upstream fixes
+## Known upstream issues
 
-Building this turned up bugs in the LlamaIndex AG-UI router (system prompt duplicated every run, client context ignored, tool history sent as text so models stop calling tools, tool parameter types lost) and a typing gap in CopilotKit's A2UI renderer. The reference agent works around them in [`agent/router.py`](agent/router.py), and tests pin each upstream behaviour.
+Building this turned up bugs in the LlamaIndex AG-UI router (system prompt duplicated every run, client context ignored, tool history sent as text so models stop calling tools, tool parameter types lost) and a typing gap in CopilotKit's A2UI renderer. The reference agent works around the router issues in [`agent/router.py`](agent/router.py), and tests pin each upstream behaviour so a release that fixes it shows up as a failing test.
 
 ## Background
 

@@ -1,4 +1,4 @@
-"""The LlamaIndex AG-UI router with two input fixes, until they land upstream.
+"""The LlamaIndex AG-UI router with three fixes, until they land upstream.
 
 1. Duplicated system prompt: the router's MESSAGES_SNAPSHOT echoes its own system
 prompt back to the client, which resends it, and the router prepends another,
@@ -15,10 +15,14 @@ out of 3 times on the second request of a conversation, so every turn after
 the first silently did nothing. `to_llama_message` below converts them into
 native tool-call blocks and `tool` messages instead.
 
-1 and 2 are fixed on the way in: drop every system message the client sent (the
-app sends none of its own; any it has are echoes of ours), then put a single
-system message first holding the system prompt and the app's context. The
-workflow gets no `system_prompt` of its own, so it adds nothing.
+1 and 2 are fixed on the way in: drop every system message the client sent
+(the app sends none of its own; any it has are echoes of ours), then put a
+single system message first holding the system prompt and the app's context.
+The workflow gets no `system_prompt` of its own, so it adds nothing.
+
+Each problem is pinned against the stock router (tests/test_router_shim.py,
+tests/test_tool_history.py), so a release that fixes one shows up as a
+failing test, and the matching fix here can go.
 """
 
 import json

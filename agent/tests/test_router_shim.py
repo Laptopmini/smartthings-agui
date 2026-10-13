@@ -41,8 +41,9 @@ def seen_by_model(router) -> list:
 
 
 def test_stock_router_duplicates_the_prompt_and_drops_context() -> None:
-    """Pins the duplicated system prompt and the dropped context on llama-index-protocols-ag-ui 0.5.0.
-    If this fails, upstream changed and router.py's shim may be removable."""
+    """Pins the duplicated system prompt and the dropped context on
+    llama-index-protocols-ag-ui 0.5.0. If this fails, upstream changed and
+    router.py's shim may be removable."""
     messages = seen_by_model(get_ag_ui_workflow_router(llm=scripted_llm.ScriptedLLM(), system_prompt=PROMPT))
     system = [m for m in messages if m.role.value == "system"]
     assert len(system) == 2  # the prompt, twice
