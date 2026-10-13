@@ -7,6 +7,7 @@ the run finishes) can be checked without loading anything in LM Studio:
 1. user asks "turn on <label>"   -> call list_devices {}
 2. list_devices result (a list)  -> call set_switch {deviceId, state}
    ("lock"/"unlock <label>" -> confirm_command; "dim <label> to N" -> set_level)
+   ("show <room>" skips the lookup: -> show_devices {room})
 3. that tool's result            -> reply with text, no tool call
 
 It never sees SmartThings: it only reads the tool results the browser sent.
@@ -55,6 +56,9 @@ def respond(messages: list[ChatMessage], **_: object) -> ChatMessage:
     last = messages[-1]
 
     if not _is_tool_result(last):
+        show = re.match(r"show (.+)$", request.strip())
+        if show:
+            return _call("show_devices", {"room": show.group(1)})
         return _call("list_devices", {})
 
     result = _text(last)

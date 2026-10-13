@@ -26,6 +26,7 @@
     "react-dom": "19.3.0",
     "typescript": "6.0.3",
     "vitest": "4.1.11",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "zod-v3-types": "npm:zod@3.25.76"
   }
 }

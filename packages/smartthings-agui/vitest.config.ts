@@ -7,7 +7,7 @@ export default defineConfig({
     // CopilotKit's JS imports its own CSS; inlining runs it through vite's transform.
     server: { deps: { inline: [/@copilotkit/, /@ag-ui/] } },
     projects: [
-      { extends: true, test: { name: "unit", include: ["test/*.test.ts"] } },
+      { extends: true, test: { name: "unit", include: ["test/*.test.ts", "test/*.test.tsx"] } },
       // Calls api.smartthings.com; skipped unless SMARTTHINGS_TOKEN is set.
       { extends: true, test: { name: "live", include: ["test/live/*.live.test.ts"], environment: "node" } },
       {

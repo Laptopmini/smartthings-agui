@@ -130,8 +130,10 @@ export function ConfirmCard<A extends Record<string, unknown>>(props: {
   prepare: (args: Partial<A>) => Promise<ToolResult<{ summary: string }>>;
   execute: (args: A) => Promise<unknown>;
   confirmLabel: string;
+  /** How to show the device after a confirmed command (default: DeviceCard). */
+  renderDevice?: (device: DeviceResult) => ReactNode;
 }) {
-  const { args, status, result, respond, prepare, execute, confirmLabel } = props;
+  const { args, status, result, respond, prepare, execute, confirmLabel, renderDevice } = props;
   const [prepared, setPrepared] = useState<ToolResult<{ summary: string }>>();
   const [busy, setBusy] = useState(false);
   const answered = useRef(false);
@@ -162,7 +164,10 @@ export function ConfirmCard<A extends Record<string, unknown>>(props: {
     const done = parseResult<Record<string, unknown>>(result);
     if (!done || isToolError(done)) return <ErrorCard message={done?.error ?? "No result"} />;
     if ("declined" in done) return <PendingCard text="Cancelled." />;
-    if ("state" in done) return <DeviceCard device={done as unknown as DeviceResult} />;
+    if ("state" in done) {
+      const device = done as unknown as DeviceResult;
+      return renderDevice ? <>{renderDevice(device)}</> : <DeviceCard device={device} />;
+    }
     return <PendingCard text="Done." />;
   }
   if (status === "inProgress" || !prepared) return <PendingCard text="Preparing…" />;

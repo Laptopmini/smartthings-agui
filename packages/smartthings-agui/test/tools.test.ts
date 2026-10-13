@@ -184,3 +184,44 @@ describe("policy", () => {
     expect(st.scenesRun).toEqual(["s-night"]);
   });
 });
+
+describe("show_devices / show_scenes", () => {
+  it("shows a room, case-insensitively, with each device's state", async () => {
+    const { call } = setup();
+    const result = await call("show_devices", { room: "office" });
+    expect(result.title).toBe("Office");
+    expect(result.devices.map((d: any) => d.deviceId)).toEqual(["dimmer", "valve", "shade"]);
+    expect(result.devices.find((d: any) => d.deviceId === "valve").needsConfirmation).toBe(true);
+  });
+
+  it("accepts device ids as a comma-separated or JSON string (the LlamaIndex router sends strings)", async () => {
+    const { call } = setup();
+    expect((await call("show_devices", { deviceIds: "bulb, dimmer" })).devices.map((d: any) => d.deviceId)).toEqual([
+      "bulb",
+      "dimmer",
+    ]);
+    expect((await call("show_devices", { deviceIds: '["lock"]' })).devices[0].label).toBe("Front Door");
+  });
+
+  it("names the real rooms when asked for one that doesn't exist", async () => {
+    const { call } = setup();
+    expect((await call("show_devices", { room: "Garage" })).error).toBe('No room called "Garage". Rooms: Office, Living Room.');
+  });
+
+  it("lists scenes for the scene buttons", async () => {
+    const { call } = setup();
+    expect(await call("show_scenes")).toEqual({ scenes: [{ sceneId: "s-night", name: "Good night" }] });
+  });
+
+  it("reports every device state it reads, for the live cards", async () => {
+    const st = fakeSmartThings();
+    const seen: string[] = [];
+    const tools = createTools(new SmartThingsClient("tok", st.impl), {
+      confirmCapabilities: new Set(),
+      onDeviceResult: (d) => seen.push(`${d.deviceId}:${d.state.switch}`),
+    });
+    const setSwitch = tools.frontend.find((t) => t.name === "set_switch")!.handler as (a: unknown) => Promise<unknown>;
+    await setSwitch({ deviceId: "dimmer", state: "on" });
+    expect(seen).toEqual(["dimmer:on"]);
+  });
+});

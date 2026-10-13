@@ -16,7 +16,12 @@
     "resolveJsonModule": true,
     "types": [
       "node"
-    ]
+    ],
+    "paths": {
+      "zod/v3": [
+        "../../node_modules/zod-v3-types/v3/index.d.cts"
+      ]
+    }
   },
   "include": [
     "src",

@@ -18,6 +18,8 @@ export interface DeviceResult {
   label: string;
   room?: string;
   state: DeviceState;
+  /** The device has a lock, door, valve or security capability (policy.ts rule 2). */
+  needsConfirmation?: boolean;
 }
 
 export interface ToolError {
@@ -30,10 +32,22 @@ export interface ToolOptions {
   /** CONFIRM capabilities the user has opted in to. Empty (the default) means
    *  locks, doors, valves and security systems can't be commanded at all. */
   confirmCapabilities: ReadonlySet<ConfirmCapability>;
+  /** Called with every device state a tool reads back, so cards already on
+   *  screen can update (see useLiveDevices). */
+  onDeviceResult?: (result: DeviceResult) => void;
 }
 
 /** Capabilities that say nothing useful to a model choosing a tool. */
 const NOISE = new Set(["refresh", "healthCheck", "firmwareUpdate", "execute", "ocf", "bridge"]);
+
+/** Most cards in one show_devices call (one status read each). */
+const MAX_CARDS = 12;
+
+/** A list of ids as an array, a JSON array string or a comma-separated string. */
+function toIdList(value: unknown): string[] {
+  const items = Array.isArray(value) ? value : typeof value === "string" && value.trim().startsWith("[") ? toArray(value) : String(value ?? "").split(",");
+  return items.map((v) => String(v).trim()).filter(Boolean);
+}
 
 /** Every argument arrives as a string from the LlamaIndex router
  *  and may arrive typed from other agents. */
@@ -95,12 +109,15 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
       attempt(() => fn(args));
 
   async function deviceResult(device: DeviceSummary): Promise<DeviceResult> {
-    return {
+    const result: DeviceResult = {
       deviceId: device.deviceId,
       label: device.label,
       room: device.room,
       state: summarizeStatus(await client.getStatus(device.deviceId)),
+      ...(device.capabilities.some((c) => c in CONFIRM_COMMANDS) ? { needsConfirmation: true } : {}),
     };
+    options.onDeviceResult?.(result);
+    return result;
   }
 
   /** Common path for every non-confirm command: rule 2, capability present. */
@@ -261,6 +278,52 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
           return commandDevice(args.deviceId, [{ capability, command: String(args.command), arguments: commandArgs }]);
         },
       ),
+    },
+    {
+      name: "show_devices",
+      description:
+        "Show device cards in the chat, with live state and on/off and dimmer controls the user can use directly. " +
+        "Give a room name to show that room, or deviceIds for specific devices. Returns each device's state.",
+      parameters: jsonSchemaParameters<{ room?: string; deviceIds?: string }>({
+        type: "object",
+        properties: {
+          room: { type: "string", description: "room (a room name from the home context)" },
+          deviceIds: { type: "string", description: "deviceIds (comma-separated device ids)" },
+        },
+      }),
+      handler: safely(async (args: { room?: string; deviceIds?: unknown }) => {
+        const devices = await client.listDevices();
+        const ids = toIdList(args.deviceIds);
+        const room = args.room ? String(args.room).trim().toLowerCase() : "";
+        let chosen: DeviceSummary[];
+        if (ids.length) {
+          chosen = ids.map((id) => devices.find((d) => d.deviceId === id)).filter((d): d is DeviceSummary => !!d);
+        } else if (room) {
+          chosen = devices.filter((d) => d.room?.toLowerCase() === room);
+          if (!chosen.length) {
+            const rooms = [...new Set(devices.map((d) => d.room).filter(Boolean))].join(", ");
+            throw new PolicyError(`No room called "${args.room}". Rooms: ${rooms}.`);
+          }
+        } else {
+          throw new PolicyError("Give a room or deviceIds.");
+        }
+        if (!chosen.length) throw new PolicyError("None of those device ids exist. Call list_devices for valid ids.");
+        // Status reads cost one request each and SmartThings rate-limits per
+        // token, so a card set is capped.
+        const shown = chosen.filter((d) => !d.capabilities.includes("bridge")).slice(0, MAX_CARDS);
+        const results = await Promise.all(shown.map(deviceResult));
+        return {
+          title: ids.length ? "Devices" : (shown[0]?.room ?? "Devices"),
+          devices: results,
+          ...(chosen.length > shown.length ? { omitted: chosen.length - shown.length } : {}),
+        };
+      }),
+    },
+    {
+      name: "show_scenes",
+      description: "Show the user's scenes in the chat as buttons they can press to run a scene themselves.",
+      parameters: jsonSchemaParameters<Record<string, never>>({ type: "object", properties: {} }),
+      handler: safely(async () => ({ scenes: await client.listScenes() })),
     },
     {
       name: "list_scenes",

@@ -99,6 +99,8 @@ it("runs list_devices then set_switch in the browser and finishes the turn", asy
     "set_level",
     "set_switch",
     "set_thermostat",
+    "show_devices",
+    "show_scenes",
   ]);
   // CopilotKit forwards the JSON Schema verbatim (enum intact; the LlamaIndex router drops it later).
   expect(agentRequests[0].tools.find((t) => t.name === "set_switch")?.parameters).toMatchObject({
@@ -167,4 +169,30 @@ it("leaves the lock alone when the person cancels", async () => {
   await waitFor(() => expect(String(agent.messages.at(-1)?.content)).toContain("declined"));
   expect(smartthings.commandsSent()).toHaveLength(0);
   expect(smartthings.byId.get("lock")!.status.lock.lock.value).toBe("locked");
+});
+
+it("shows a room as A2UI cards whose controls work and stay live", async () => {
+  const { smartthings, send } = mount([], true);
+  await act(async () => {
+    await send("Show Office");
+  });
+  const tiles = await screen.findAllByTestId("device-tile", {}, { timeout: 10_000 });
+  expect(tiles.map((t) => t.dataset.label)).toEqual(["Desk Lamp", "Water Valve", "Office Blind"]);
+  // The valve exposes switch too, but its tile has no controls (policy rule 2).
+  expect(tiles[1].querySelector("button")).toBeNull();
+
+  // A click on the card runs the command in the browser, with no agent run.
+  const runsBefore = agentRequests.length;
+  await act(async () => {
+    tiles[0].querySelector("button")!.click();
+  });
+  await waitFor(() => expect(smartthings.byId.get("dimmer")!.status.switch.switch.value).toBe("on"));
+  expect(agentRequests.length).toBe(runsBefore);
+  await waitFor(() => expect(screen.getAllByTestId("tile-state")[0].textContent).toBe("On · 10%"));
+
+  // The agent then turns the lamp off: the earlier card follows.
+  await act(async () => {
+    await send("Turn off Desk Lamp");
+  });
+  await waitFor(() => expect(screen.getAllByTestId("tile-state")[0].textContent).toBe("Off"));
 });

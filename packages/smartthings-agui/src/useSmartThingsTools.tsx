@@ -1,7 +1,10 @@
 import { useAgentContext, useFrontendTools, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { useEffect, useMemo, useState } from "react";
-import { ConfirmCard, DeviceCard, DeviceListCard, ErrorCard, PendingCard, parseResult } from "./cards";
+import { Surface, type UserAction } from "./a2ui/Surface";
+import { deviceSurface, sceneSurface } from "./a2ui/surfaces";
+import { ConfirmCard, DeviceListCard, ErrorCard, PendingCard, parseResult } from "./cards";
 import type { DeviceSummary, SceneSummary, SmartThingsClient } from "./client";
+import { LiveDevices } from "./liveDevices";
 import type { ConfirmCapability } from "./policy";
 import { createTools, isToolError, type ConfirmArgs, type DeviceResult } from "./tools";
 
@@ -13,18 +16,74 @@ export interface SmartThingsToolsOptions {
   context?: boolean;
 }
 
-type RenderProps = { name: string; status: string; result?: string };
+type Tools = ReturnType<typeof createTools>;
+type RenderProps = { name: string; toolCallId: string; status: string; result?: string };
+
+/** A card's control (toggle, slider, scene button) runs through the same tool
+ *  handlers the agent uses, so policy.ts applies to clicks too. Resolves to a
+ *  message for the card, if there's something to say. */
+async function runCardAction(tools: Tools, action: UserAction): Promise<string | undefined> {
+  const ctx = action.context ?? {};
+  const handler = (name: string) =>
+    tools.frontend.find((t) => t.name === name)!.handler as (args: Record<string, unknown>) => Promise<unknown>;
+  let result: unknown;
+  switch (action.name) {
+    case "toggle":
+      result = await handler("set_switch")({ deviceId: ctx.deviceId, state: ctx.isOn ? "off" : "on" });
+      break;
+    case "setLevel":
+      result = await handler("set_level")({ deviceId: ctx.deviceId, level: ctx.level });
+      break;
+    case "runScene":
+      // The person pressed the scene's button: that click is the confirmation.
+      result = await tools.runScene.execute({ sceneId: String(ctx.sceneId) });
+      if (!isToolError(result)) return "Scene started.";
+      break;
+    default:
+      return `Unknown action ${action.name}.`;
+  }
+  return isToolError(result) ? result.error : undefined;
+}
+
+function DevicesSurface(props: { id: string; title: string; devices: DeviceResult[]; tools: Tools; live: LiveDevices }) {
+  const { id, title, devices, tools, live } = props;
+  const operations = useMemo(() => deviceSurface(id, title, devices), [id, title, devices]);
+  return (
+    <Surface
+      surfaceId={id}
+      operations={operations}
+      deviceIds={devices.map((d) => d.deviceId)}
+      live={live}
+      onAction={(a) => runCardAction(tools, a)}
+    />
+  );
+}
 
 /** One renderer for every frontend tool: the card follows the result's shape. */
-function ToolCard({ name, status, result }: RenderProps) {
+function ToolCard({ name, toolCallId, status, result, tools, live }: RenderProps & { tools: Tools; live: LiveDevices }) {
+  const parsed = useMemo(() => (status === "complete" ? parseResult<unknown>(result) : undefined), [status, result]);
   if (status !== "complete") return <PendingCard text={name === "list_devices" ? "Looking up devices…" : "Working…"} />;
-  const parsed = parseResult<unknown>(result);
   if (!parsed) return null;
   if (isToolError(parsed)) return <ErrorCard message={parsed.error} />;
+  const id = `${name}-${toolCallId}`;
   if (Array.isArray(parsed)) {
     return name === "list_devices" ? <DeviceListCard devices={parsed as DeviceSummary[]} /> : null;
   }
-  if (typeof parsed === "object" && "state" in parsed) return <DeviceCard device={parsed as DeviceResult} />;
+  const value = parsed as Record<string, unknown>;
+  if ("state" in value) return <DevicesSurface id={id} title="" devices={[value as unknown as DeviceResult]} tools={tools} live={live} />;
+  if (Array.isArray(value.devices)) {
+    return <DevicesSurface id={id} title={String(value.title ?? "")} devices={value.devices as DeviceResult[]} tools={tools} live={live} />;
+  }
+  if (Array.isArray(value.scenes)) {
+    return (
+      <Surface
+        surfaceId={id}
+        operations={sceneSurface(id, value.scenes as SceneSummary[])}
+        live={live}
+        onAction={(a) => runCardAction(tools, a)}
+      />
+    );
+  }
   return null;
 }
 
@@ -58,13 +117,22 @@ function useHomeContext(client: SmartThingsClient, enabled: boolean) {
  *  sees only arguments and results. */
 export function useSmartThingsTools(client: SmartThingsClient, options: SmartThingsToolsOptions = {}) {
   const key = [...(options.confirmCapabilities ?? [])].sort().join(",");
+  // One live store per client: every card on screen shares it.
+  const live = useMemo(() => new LiveDevices(), [client]);
   const tools = useMemo(
-    () => createTools(client, { confirmCapabilities: new Set(key ? (key.split(",") as ConfirmCapability[]) : []) }),
-    [client, key],
+    () =>
+      createTools(client, {
+        confirmCapabilities: new Set(key ? (key.split(",") as ConfirmCapability[]) : []),
+        onDeviceResult: (device) => live.set(device),
+      }),
+    [client, key, live],
   );
 
   useFrontendTools(
-    tools.frontend.map((tool) => ({ ...tool, render: ToolCard })),
+    tools.frontend.map((tool) => ({
+      ...tool,
+      render: (props: RenderProps) => <ToolCard {...props} tools={tools} live={live} />,
+    })),
     [tools],
   );
 
@@ -82,6 +150,9 @@ export function useSmartThingsTools(client: SmartThingsClient, options: SmartThi
           prepare={confirmCommand.prepare}
           execute={confirmCommand.execute}
           confirmLabel={props.args.command ? capitalize(String(props.args.command)) : "Confirm"}
+          renderDevice={(device) => (
+            <DevicesSurface id={`confirm_command-${props.toolCallId}`} title="" devices={[device]} tools={tools} live={live} />
+          )}
         />
       ),
     },
