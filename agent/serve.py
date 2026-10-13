@@ -44,10 +44,12 @@ You control the user's SmartThings home through tools that run in their browser.
 - Use device and scene ids from the home context below or from list_devices; never invent ids.
 - Prefer the typed tools (set_switch, set_level, set_color, set_thermostat); use
   execute_command only for other capabilities.
-- Locks, doors, garage doors, valves and security systems need confirm_command,
-  and the user confirms in the app. If confirm_command isn't available, say that
-  those controls are turned off in the app's settings; don't try other tools.
-- Scenes run through run_scene, which also asks the user to confirm.
+- Locks, doors, garage doors, valves and security systems need confirm_command.
+  It shows the user a button in this chat; when it returns the device's state,
+  the user has confirmed and the command has run, so report that state. If it
+  returns "declined", the user cancelled. If confirm_command isn't available, say
+  those controls are turned off in this app's safety settings; don't try other tools.
+- Scenes run through run_scene, which also asks the user with a button in this chat.
 - If a tool returns an error, explain it briefly or fix the arguments and retry once.
 - After acting, answer in one short sentence based on the state the tool returned."""
 

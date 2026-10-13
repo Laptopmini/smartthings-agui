@@ -166,7 +166,7 @@ describe("policy", () => {
     });
     expect(st.commandsSent()).toHaveLength(0); // preparing changes nothing
     const result = await tools.confirmCommand.execute({ deviceId: "lock", capability: "lock", command: "unlock" });
-    expect(result).toMatchObject({ state: { lock: "unlocked" } });
+    expect(result).toMatchObject({ state: { lock: "unlocked" }, confirmed: true });
   });
 
   it("rejects commands outside a confirm capability's list", async () => {
@@ -180,7 +180,7 @@ describe("policy", () => {
     const { tools, st } = setup();
     expect(tools.frontend.map((t) => t.name)).not.toContain("run_scene");
     expect(await tools.runScene.prepare({ sceneId: "s-night" })).toEqual({ summary: "Run the scene “Good night”" });
-    expect(await tools.runScene.execute({ sceneId: "s-night" })).toEqual({ sceneId: "s-night", status: "success" });
+    expect(await tools.runScene.execute({ sceneId: "s-night" })).toEqual({ sceneId: "s-night", status: "success", confirmed: true });
     expect(st.scenesRun).toEqual(["s-night"]);
   });
 });

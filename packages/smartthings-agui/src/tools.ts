@@ -339,7 +339,8 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
   const confirmCommand = {
     name: "confirm_command",
     description:
-      "Lock/unlock, open/close a door, valve or garage, or arm/disarm security, after the user confirms in the app. " +
+      "Lock/unlock, open/close a door, valve or garage, or arm/disarm security. The user sees a button in this chat " +
+      "and the command runs only if they press it; a result with confirmed: true means it has already run. " +
       `Allowed now: ${enabled.map((c) => `${c} (${CONFIRM_COMMANDS[c].join("|")})`).join("; ") || "none"}.`,
     available: enabled.length > 0,
     parameters: jsonSchemaParameters<ConfirmArgs>({
@@ -364,7 +365,7 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
     },
     /** Runs the command. Policy is checked again here, at the moment of
      *  confirmation, in case settings changed while the card was open. */
-    async execute(args: ConfirmArgs): Promise<ToolResult<DeviceResult>> {
+    async execute(args: ConfirmArgs): Promise<ToolResult<DeviceResult & { confirmed: true }>> {
       return attempt(async () => {
         assertConfirmable(args.capability, args.command, options.confirmCapabilities);
         const device = await client.getDevice(args.deviceId);
@@ -372,7 +373,8 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
           throw new PolicyError(`${device.label} doesn't have the ${args.capability} capability.`);
         }
         await client.executeCommands(device.deviceId, [{ capability: args.capability, command: args.command }]);
-        return deviceResult(device);
+        // Tell the model plainly: the person pressed the button and it ran.
+        return { ...(await deviceResult(device)), confirmed: true };
       });
     },
   };
@@ -382,7 +384,9 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
    *  2026), and a scene may unlock a door. */
   const runScene = {
     name: "run_scene",
-    description: "Run one of the user's SmartThings scenes, after the user confirms in the app.",
+    description:
+      "Run one of the user's SmartThings scenes. The user sees a button in this chat and the scene runs only if they " +
+      "press it; a result with confirmed: true means it has already run.",
     parameters: jsonSchemaParameters<{ sceneId: string }>({
       type: "object",
       properties: { sceneId: { type: "string", description: "Scene id from list_scenes" } },
@@ -395,8 +399,8 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
         return { summary: `Run the scene “${scene.name}”` };
       });
     },
-    async execute({ sceneId }: { sceneId: string }): Promise<ToolResult<{ sceneId: string; status: string }>> {
-      return attempt(async () => ({ sceneId, status: (await client.executeScene(sceneId)).status }));
+    async execute({ sceneId }: { sceneId: string }): Promise<ToolResult<{ sceneId: string; status: string; confirmed: true }>> {
+      return attempt(async () => ({ sceneId, status: (await client.executeScene(sceneId)).status, confirmed: true }));
     },
   };
 
