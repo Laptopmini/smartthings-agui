@@ -1,0 +1,108 @@
+:root {
+  --st-bg: #ffffff;
+  --st-fg: #1b1d21;
+  --st-muted: #6b7078;
+  --st-border: #e3e5e8;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --st-bg: #16181c;
+    --st-fg: #e8eaed;
+    --st-muted: #9aa0a8;
+    --st-border: #2c3036;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--st-bg);
+  color: var(--st-fg);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.st-app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+.st-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--st-border);
+}
+.st-header strong {
+  margin-right: auto;
+}
+.st-settings {
+  position: relative;
+  font-size: 14px;
+}
+.st-settings summary {
+  cursor: pointer;
+}
+.st-settings[open] {
+  z-index: 10;
+  background: var(--st-bg);
+  border: 1px solid var(--st-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  max-width: 280px;
+}
+.st-settings p {
+  color: var(--st-muted);
+  font-size: 13px;
+  margin: 6px 0;
+}
+.st-settings label {
+  display: block;
+  padding: 2px 0;
+}
+.st-link {
+  background: none;
+  border: none;
+  color: var(--st-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+}
+.st-chat {
+  min-height: 0;
+}
+.st-signin {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  max-width: 420px;
+  margin: 15vh auto 0;
+  width: 100%;
+}
+.st-signin input,
+.st-signin button {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--st-border);
+  background: transparent;
+  color: inherit;
+}
+.st-signin small,
+.st-footer {
+  color: var(--st-muted);
+  font-size: 12px;
+}
+.st-footer {
+  padding: 8px 0 12px;
+  text-align: center;
+}
