@@ -10,7 +10,7 @@ const SET_SWITCH_PARAMETERS = jsonSchemaParameters<SetSwitchArgs>({
   type: "object",
   properties: {
     deviceId: { type: "string", description: "Device id from list_devices" },
-    // The enum is lost in the LlamaIndex router (see describeSchema), so the
+    // The enum is lost in the LlamaIndex router, so the
     // description carries the allowed values too.
     state: { type: "string", enum: ["on", "off"], description: "state (one of: on, off)" },
   },

@@ -36,8 +36,7 @@ export function toolName(capability: string, command: string): string {
  *  The LlamaIndex AG-UI router (llama-index-protocols-ag-ui 0.5.0) rebuilds
  *  every frontend-tool parameter as a plain string, dropping `enum`, `type`,
  *  `minimum` and `maximum`, but it keeps `description`. Repeating the
- *  constraints in prose is what still reaches the model. Pinned by
- *  agent/tests/test_dynamic_tool_schema.py.
+ *  constraints in prose is what still reaches the model. Pinned by agent/tests/test_dynamic_tool_schema.py.
  */
 export function describeSchema(schema: JsonSchema): string {
   const parts: string[] = [];

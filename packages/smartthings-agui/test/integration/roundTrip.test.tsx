@@ -108,7 +108,8 @@ it("runs list_devices then set_switch in the browser and finishes the turn", asy
     // Known upstream behaviour (llama-index-protocols-ag-ui 0.5.0): each run's
     // MESSAGES_SNAPSHOT includes the server-side system prompt, CopilotKit
     // adopts it into the thread and resends it, and the router prepends a new
-    // one, so the model sees runs + 1 copies. If this fails, it was fixed.
+    // one, so the model sees runs + 1 copies. If this
+    // fails, it was fixed.
     expect(roles.filter((r) => r === "system")).toHaveLength(3);
     expect(agentRequests[2].messages.filter((m) => (m as { role: string }).role === "system")).toHaveLength(2);
     const last = agent.messages.at(-1);
