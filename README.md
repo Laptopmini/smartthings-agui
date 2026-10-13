@@ -2,11 +2,9 @@
 
 Talk to your SmartThings home from any [AG-UI](https://docs.ag-ui.com) agent, with device cards in the chat, a confirmation step before anything security-sensitive moves, and a SmartThings token that never leaves your browser.
 
-![Dimming a light, changing a bulb's colour, and unlocking a lock after pressing the confirmation button](docs/demo.gif)
+![Asking for a room shows a card per device; pressing a card's button switches a light directly; asking to unlock a lock shows a confirmation, and it unlocks only after the button is pressed](docs/demo.gif)
 
 *Recorded against SmartThings virtual devices .*
-
-![Asking for a room shows a card per device; pressing a card's button switches the device without asking the agent; the cards stay in sync](docs/demo-cards.gif)
 
 > Not affiliated with or endorsed by Samsung. "SmartThings" is used only to describe what this works with.
 

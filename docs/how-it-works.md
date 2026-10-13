@@ -25,6 +25,8 @@ The agent ends each run when the model calls a frontend tool and never answers t
 
 Device and scene cards are [A2UI](https://a2ui.org) v0.9 surfaces rendered with `@copilotkit/a2ui-renderer`.
 
+![A room shown as cards; pressing a card's button switches the device without an agent turn, and the cards stay in sync](demo-cards.gif)
+
 - **The agent chooses what, the browser builds how.** `show_devices(room)` or `show_devices(deviceIds)` returns the devices' states to the agent; the browser turns the same data into a surface from a three-component catalog (`TileGrid`, `DeviceTile`, `SceneButton`). The model never writes A2UI JSON, and the catalog's schemas never enter its context. (CopilotKit's `a2ui` prop would add the full component schemas to every request.)
 - **Templates are pure binding.** A2UI templates can't compute, so `packages/smartthings-agui/src/a2ui/surfaces.ts` derives every display field (`stateText`, colour, which controls to show) before emitting `createSurface`, `updateComponents` and `updateDataModel`.
 - **Live state without polling.** Every status read, from any tool or any card, goes into one shared store, and each card on screen applies an `updateDataModel` for the tiles it shows. Switch a lamp from a card and ask the agent about it, or the other way round: every card showing that lamp follows. Changes made outside the app (a wall switch) aren't pushed: real-time device events need a SmartThings subscription, which the public API offers to installed SmartApps through a webhook, so it needs a server.

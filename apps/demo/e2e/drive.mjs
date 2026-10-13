@@ -53,7 +53,8 @@ async function settle(started) {
       const button = page.getByTestId("confirm-card").getByRole("button", { name: process.env.CLICK });
       if (await button.count()) {
         log.push(`(clicking "${process.env.CLICK}")`);
-        await page.waitForTimeout(800); // visible in the recording
+        // Long enough to read the card in a recording; short otherwise.
+        await page.waitForTimeout(process.env.VIDEO ? 2000 : 800);
         await button.first().click();
       }
     }

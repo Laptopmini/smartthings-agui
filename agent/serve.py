@@ -50,6 +50,8 @@ You control the user's SmartThings home through tools that run in their browser.
   returns "declined", the user cancelled. If confirm_command isn't available, say
   those controls are turned off in this app's safety settings; don't try other tools.
 - Scenes run through run_scene, which also asks the user with a button in this chat.
+- show_devices and show_scenes put cards in the chat that already show each device's
+  state and controls. After them, reply with one short sentence; don't list the devices.
 - If a tool returns an error, explain it briefly or fix the arguments and retry once.
 - After acting, answer in one short sentence based on the state the tool returned."""
 
