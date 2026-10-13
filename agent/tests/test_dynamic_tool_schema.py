@@ -28,8 +28,9 @@ def test_router_flattens_every_parameter_to_string() -> None:
     """Documents current behaviour of llama-index-protocols-ag-ui 0.5.0.
 
     `enum`, `integer`, `minimum` and `maximum` are all dropped: the model sees
-    three plain strings. If this test starts failing, upstream fixed it and the
-    workaround (allowed values repeated in `description`) can go.
+    three plain strings. If this test starts failing,
+    upstream fixed it and the workaround (allowed values repeated in
+    `description`) can go.
     """
     schema = _ag_ui_tool_to_llama_index(SET_LEVEL).metadata.get_parameters_dict()
     props = schema["properties"]
