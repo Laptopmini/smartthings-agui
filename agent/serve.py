@@ -7,13 +7,13 @@ model and ends the run when the model calls one, so the browser executes it
 and calls back with the result.
 
 Usage:
-    uv run python serve.py              # LM Studio (OpenAI-compatible)
+    uv run python serve.py              # OpenAI-compatible model (see below)
     uv run python serve.py --scripted   # deterministic test double, no model
 
-Environment (LM Studio mode):
-    LMSTUDIO_API_BASE   default http://localhost:1234/v1
-    LMSTUDIO_API_KEY    LM Studio's API key, if it has one
-    SMARTTHINGS_AGUI_MODEL  default google/gemma-4-26b-a4b
+Environment (any OpenAI-compatible endpoint; LM Studio by default):
+    AGENT_API_BASE   default http://localhost:1234/v1
+    AGENT_API_KEY    the endpoint's key (LM Studio's, or a hosted provider's)
+    AGENT_MODEL      default google/gemma-4-26b-a4b
 """
 
 import argparse
@@ -47,9 +47,9 @@ def build_llm(scripted: bool):
     from llama_index.llms.openai_like import OpenAILike
 
     return OpenAILike(
-        model=os.getenv("SMARTTHINGS_AGUI_MODEL", DEFAULT_MODEL),
-        api_base=os.getenv("LMSTUDIO_API_BASE", "http://localhost:1234/v1"),
-        api_key=os.getenv("LMSTUDIO_API_KEY", "lm-studio"),
+        model=os.getenv("AGENT_MODEL", DEFAULT_MODEL),
+        api_base=os.getenv("AGENT_API_BASE", "http://localhost:1234/v1"),
+        api_key=os.getenv("AGENT_API_KEY", "lm-studio"),
         is_chat_model=True,
         # Native tool calls: the router reads `tool_calls` back from the response.
         is_function_calling_model=True,
