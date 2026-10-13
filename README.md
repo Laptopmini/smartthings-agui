@@ -43,29 +43,29 @@ An agent unlocking a door is the failure that matters, so:
 4. **Scenes always ask**, because a scene can unlock a door and the public API doesn't reliably say what a scene contains.
 5. **The token stays in the browser.** The agent sees tool arguments and results only. Tokens are kept in memory, not storage.
 
+What the model *does* see: with a hosted model, the conversation, device and room names, and device states go to that model provider, as with any cloud assistant. Never your SmartThings token. A local model keeps all of it at home (see "not yet verified" below).
+
 The list of confirm-only capabilities is hard-coded on purpose: the API's per-command `sensitive` flag isn't a safety signal (`lock.unlock` reports `"sensitive": false`). The rules live in one small file, [`policy.ts`](packages/smartthings-agui/src/policy.ts), with tests in [`tools.test.ts`](packages/smartthings-agui/test/tools.test.ts) and the confirmation flow tested end to end in [`roundTrip.test.tsx`](packages/smartthings-agui/test/integration/roundTrip.test.tsx).
 
 ## Run it
 
-Requirements: Node 24, Python 3.14 with [uv](https://docs.astral.sh/uv/), a SmartThings account, and an OpenAI-compatible model with native tool calling.
+Requirements: Node 24, Python 3.14 with [uv](https://docs.astral.sh/uv/), a SmartThings account, and an OpenAI-compatible model with native tool calling (tested with one hosted model).
 
 ```sh
 npm install
 (cd agent && uv sync)
 ```
 
-**1. The agent.** Point it at any OpenAI-compatible endpoint:
+**1. The agent.** It defaults to the model it was tested with:
 
 ```sh
 cd agent
-# LM Studio (default endpoint http://localhost:1234/v1):
-AGENT_MODEL=google/gemma-4-26b-a4b uv run python serve.py
-# or a hosted model:
-AGENT_API_BASE=https://api.example.com/v1 AGENT_API_KEY=... AGENT_MODEL=example-model \
-  AGENT_EXTRA_BODY='{"example_option": true}' uv run python serve.py
+AGENT_API_KEY=... uv run python serve.py                     # default model
+# any other OpenAI-compatible endpoint:
+AGENT_API_BASE=https://… AGENT_API_KEY=... AGENT_MODEL=… uv run python serve.py
 ```
 
-`AGENT_EXTRA_BODY` passes provider options through; for some providers, `example_option` keeps its reasoning out of the chat. `uv run python serve.py --scripted` runs a deterministic stand-in model for testing.
+`AGENT_EXTRA_BODY` passes provider options through (for some providers it defaults to `{"example_option": true}`, which keeps the model's reasoning out of the chat). `uv run python serve.py --scripted` runs a deterministic stand-in model for testing. Local models (LM Studio and the like) should work the same way but haven't been tested yet; that's planned after the initial release.
 
 **2. The app.**
 
@@ -115,7 +115,7 @@ The integration tests run real CopilotKit and `@ag-ui/client` against the real P
 Tested (13 Oct 2026): `@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, React 19.3, Node 24.14, Python 3.14.7; headless Chromium (Playwright 1.58.2); a hosted model against SmartThings virtual devices (switch, dimmer, colour bulb, lock, thermostat, contact and multi sensors, garage door), including multi-turn conversations, confirmations and refusals.
 
 Not yet verified:
-- A local model (LM Studio / Gemma). The reference agent defaults to it, but this build was tested with one hosted model only.
+- Local models (LM Studio / Gemma): planned after the initial release. Only one hosted model has been tested.
 - OAuth end to end with a real OAuth-In app (the exchange service and browser flow are tested against fakes only).
 - Real hardware, `run_scene` against real scenes, and capability versions other than 1.
 - Other browsers and headed mode (only headless Chromium was used); mobile layouts.

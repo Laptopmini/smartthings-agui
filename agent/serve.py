@@ -10,13 +10,15 @@ Usage:
     uv run python serve.py              # OpenAI-compatible model (see below)
     uv run python serve.py --scripted   # deterministic test double, no model
 
-Environment (any OpenAI-compatible endpoint; LM Studio by default):
-    AGENT_API_BASE   default http://localhost:1234/v1
-    AGENT_API_KEY    the endpoint's key (LM Studio's, or a hosted provider's)
-    AGENT_MODEL      default google/gemma-4-26b-a4b
-    AGENT_EXTRA_BODY optional JSON merged into each request body, for
-                     provider options. Example: {"example_option": true}
-                     keeps its <think> reasoning out of the chat reply.
+Environment (any OpenAI-compatible endpoint). The defaults are the setup
+that was tested; local models (e.g. LM Studio) are a later goal
+(planned):
+    AGENT_API_BASE   default https://api.example.com/v1
+    AGENT_API_KEY    the endpoint's key (required)
+    AGENT_MODEL      default example-model
+    AGENT_EXTRA_BODY JSON merged into each request body, for provider
+                     options. Example: {"example_option": true},
+                     which keeps its <think> reasoning out of the chat reply.
 """
 
 import argparse
@@ -34,7 +36,8 @@ PORT = 8000
 # Vite's dev server. The browser calls this agent directly (no Node runtime).
 DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
-DEFAULT_MODEL = "google/gemma-4-26b-a4b"
+DEFAULT_API_BASE = "https://api.example.com/v1"
+DEFAULT_MODEL = "example-model"
 
 SYSTEM_PROMPT = """\
 You control the user's SmartThings home through tools that run in their browser.
@@ -57,18 +60,24 @@ def build_llm(scripted: bool):
 
     from llama_index.llms.openai_like import OpenAILike
 
+    api_key = os.getenv("AGENT_API_KEY")
+    if not api_key:
+        raise SystemExit("Set AGENT_API_KEY (and AGENT_API_BASE/AGENT_MODEL for another provider).")
+    api_base = os.getenv("AGENT_API_BASE", DEFAULT_API_BASE)
+    extra_body = os.getenv("AGENT_EXTRA_BODY")
+    if extra_body is None and "api.example.com" in api_base:
+        extra_body = '{"example_option": true}'
+
     return OpenAILike(
         model=os.getenv("AGENT_MODEL", DEFAULT_MODEL),
-        api_base=os.getenv("AGENT_API_BASE", "http://localhost:1234/v1"),
-        api_key=os.getenv("AGENT_API_KEY", "lm-studio"),
+        api_base=api_base,
+        api_key=api_key,
         is_chat_model=True,
         # Native tool calls: the router reads `tool_calls` back from the response.
         is_function_calling_model=True,
         context_window=32768,
         timeout=300,
-        additional_kwargs=(
-            {"extra_body": json.loads(os.environ["AGENT_EXTRA_BODY"])} if os.getenv("AGENT_EXTRA_BODY") else {}
-        ),
+        additional_kwargs={"extra_body": json.loads(extra_body)} if extra_body else {},
     )
 
 
