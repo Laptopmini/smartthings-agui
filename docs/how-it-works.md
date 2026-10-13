@@ -43,7 +43,7 @@ All in [`policy.ts`](../packages/smartthings-agui/src/policy.ts):
 1. Commands for `lock`, `garageDoorControl`, `doorControl`, `securitySystem` and `valve` are denied unless the user turns that capability on in the app. Until then the `confirm_command` tool isn't offered to the agent at all.
 2. When it's on, `confirm_command` is human-in-the-loop: a card says what will happen, and the command runs only when the person presses the button. The policy is checked again at that moment.
 3. A device that has any of those capabilities can't be commanded through any other tool, and its card has no controls. (Some valves and garage openers also expose `switch`.)
-4. Scenes the agent runs always ask first: a scene can unlock a door, and the public API doesn't reliably say what a scene contains (`GET /scenes/{id}` returned `"devices": []` for a lighting scene). On a scene card, the person's own press is the confirmation.
+4. Scenes the agent runs always ask first: a scene can unlock a door, and the public API doesn't say what a scene contains (`GET /scenes/{id}` returned `"devices": []` both for a lighting scene and for a test scene known to switch three devices). On a scene card, the person's own press is the confirmation. Since the devices a scene touches aren't known, the devices already shown in cards are read once more after it runs, so the cards reflect it.
 
 `doorControl` is on the list because garage door openers use it as well as `garageDoorControl` (the `VIRTUAL_GARAGE_DOOR_OPENER` prototype does). The list is hard-coded rather than derived from the API's per-command `sensitive` flag, which marks commands whose arguments carry secrets, not commands with physical effects: `lock.unlock` reports `"sensitive": false`.
 

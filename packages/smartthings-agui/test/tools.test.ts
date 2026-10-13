@@ -190,7 +190,12 @@ describe("policy", () => {
     const { tools, st } = setup();
     expect(tools.frontend.map((t) => t.name)).not.toContain("run_scene");
     expect(await tools.runScene.prepare({ sceneId: "s-night" })).toEqual({ summary: "Run the scene “Good night”" });
-    expect(await tools.runScene.execute({ sceneId: "s-night" })).toEqual({ sceneId: "s-night", status: "success", confirmed: true });
+    expect(await tools.runScene.execute({ sceneId: "s-night" })).toEqual({
+      sceneId: "s-night",
+      name: "Good night",
+      status: "success",
+      confirmed: true,
+    });
     expect(st.scenesRun).toEqual(["s-night"]);
   });
 });
@@ -234,4 +239,17 @@ describe("show_devices / show_scenes", () => {
     await setSwitch({ deviceId: "dimmer", state: "on" });
     expect(seen).toEqual(["dimmer:on"]);
   });
+});
+
+it("re-reads the devices shown in cards after a scene runs", async () => {
+  const st = fakeSmartThings();
+  const seen: string[] = [];
+  const tools = createTools(new SmartThingsClient("tok", st.impl), {
+    confirmCapabilities: new Set(),
+    onDeviceResult: (d) => seen.push(d.deviceId),
+    shownDeviceIds: () => ["dimmer", "bulb"],
+    sceneSettleMs: 0,
+  });
+  await tools.runScene.execute({ sceneId: "s-night" });
+  expect(seen.sort()).toEqual(["bulb", "dimmer"]);
 });

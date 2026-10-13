@@ -37,7 +37,7 @@ async function runCardAction(tools: Tools, action: UserAction): Promise<string |
     case "runScene":
       // The person pressed the scene's button: that click is the confirmation.
       result = await tools.runScene.execute({ sceneId: String(ctx.sceneId) });
-      if (!isToolError(result)) return "Scene started.";
+      if (!isToolError(result)) return `Ran “${(result as { name?: string }).name ?? "the scene"}”.`;
       break;
     default:
       return `Unknown action ${action.name}.`;
@@ -129,6 +129,7 @@ export function useSmartThingsTools(client: SmartThingsClient, options: SmartThi
       createTools(client, {
         confirmCapabilities: new Set(key ? (key.split(",") as ConfirmCapability[]) : []),
         onDeviceResult: (device) => live.set(device),
+        shownDeviceIds: () => live.ids(),
       }),
     [client, key, live],
   );

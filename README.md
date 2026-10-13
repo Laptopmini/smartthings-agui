@@ -124,7 +124,7 @@ Browsers: the same end-to-end run (room cards, a card control, a confirmed unloc
 
 Not yet verified:
 - Local models (LM Studio and similar): planned after the initial release. So far one hosted model has been tested end to end.
-- Real hardware, and `run_scene` against real scenes (only virtual devices were commanded).
+- Real hardware (only virtual devices were commanded). Scenes were verified with a scene of virtual devices: the agent runs it only after the confirmation press, Cancel leaves everything as it was, and a scene card's button runs it.
 - The Safari app itself and real phones (WebKit and device emulation stand in for them).
 - Capability versions other than 1: handled, and unit-tested with a made-up version 2, but no real device reporting one was available. Devices with several components (some ovens, hubs) are addressed through their `main` component only.
 

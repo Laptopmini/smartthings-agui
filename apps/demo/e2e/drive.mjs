@@ -8,6 +8,8 @@
 //   CLICK=Unlock              press this button whenever a confirm card shows
 //   TILE="Label:Button"       after each prompt, press that button on the device
 //                             tile with exactly that label (the first such tile)
+//   PRESS="Name"              after each prompt, press the card button with
+//                             exactly this name (e.g. a scene's button)
 //   SHOTS=dir                 save a screenshot after each prompt
 //   VIDEO=dir                 record a video of the session
 //   BROWSER=chromium|firefox|webkit|chrome   default chromium ("chrome" is the
@@ -78,7 +80,9 @@ async function settle(started) {
     await page.waitForTimeout(500);
     if (process.env.CLICK) {
       const button = page.getByTestId("confirm-card").getByRole("button", { name: process.env.CLICK });
-      if (await button.count()) {
+      // Only an enabled button: after a press, the card disables its buttons
+      // while the command runs, and pressing again would wait forever.
+      if ((await button.count()) && (await button.first().isEnabled())) {
         log.push(`(clicking "${process.env.CLICK}")`);
         // Long enough to read the card in a recording; short otherwise.
         await page.waitForTimeout(process.env.VIDEO ? 2000 : 800);
@@ -129,6 +133,14 @@ for (const [i, prompt] of prompts.entries()) {
           log.push(`(tile after click @${at()}: ${(await tile.innerText()).replace(/\s+/g, " ")})`);
         }
       }
+      await settle(Date.now());
+    }
+  }
+  if (process.env.PRESS) {
+    const button = page.locator('[data-testid="surface"]').getByRole("button", { name: process.env.PRESS, exact: true });
+    if (await button.count()) {
+      log.push(`(card button: pressing "${process.env.PRESS}")`);
+      await button.first().click();
       await settle(Date.now());
     }
   }

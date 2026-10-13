@@ -26,6 +26,11 @@ export class LiveDevices {
     return devices.map((d) => this.states.get(d.deviceId) ?? d);
   }
 
+  /** Ids of every device whose state is known (i.e. shown in some card). */
+  ids(): string[] {
+    return [...this.states.keys()];
+  }
+
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

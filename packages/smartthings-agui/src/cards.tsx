@@ -168,6 +168,7 @@ export function ConfirmCard<A extends Record<string, unknown>>(props: {
       const device = done as unknown as DeviceResult;
       return renderDevice ? <>{renderDevice(device)}</> : <DeviceCard device={device} />;
     }
+    if (typeof done.name === "string") return <PendingCard text={`Ran “${done.name}”.`} />;
     return <PendingCard text="Done." />;
   }
   if (status === "inProgress" || !prepared) return <PendingCard text="Preparing…" />;

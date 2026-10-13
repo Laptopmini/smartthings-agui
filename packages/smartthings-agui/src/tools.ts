@@ -35,6 +35,11 @@ export interface ToolOptions {
   /** Called with every device state a tool reads back, so cards already on
    *  screen can update (see useLiveDevices). */
   onDeviceResult?: (result: DeviceResult) => void;
+  /** Devices shown in cards right now. After a scene runs they're read again
+   *  (the API doesn't say which devices a scene touches), so the cards update. */
+  shownDeviceIds?: () => string[];
+  /** Wait before that read, for the scene to finish (ms; tests pass 0). */
+  sceneSettleMs?: number;
 }
 
 /** Capabilities that say nothing useful to a model choosing a tool. */
@@ -402,8 +407,19 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
         return { summary: `Run the scene “${scene.name}”` };
       });
     },
-    async execute({ sceneId }: { sceneId: string }): Promise<ToolResult<{ sceneId: string; status: string; confirmed: true }>> {
-      return attempt(async () => ({ sceneId, status: (await client.executeScene(sceneId)).status, confirmed: true }));
+    async execute({ sceneId }: { sceneId: string }): Promise<ToolResult<{ sceneId: string; name?: string; status: string; confirmed: true }>> {
+      return attempt(async () => {
+        const name = (await client.listScenes()).find((s) => s.sceneId === sceneId)?.name;
+        const { status } = await client.executeScene(sceneId);
+        const shown = options.shownDeviceIds?.() ?? [];
+        if (shown.length) {
+          // One read per shown device, once: no polling. SmartThings runs a
+          // scene asynchronously; the virtual test devices had settled within 2 s.
+          await new Promise((r) => setTimeout(r, options.sceneSettleMs ?? 1500));
+          await Promise.allSettled(shown.map(async (id) => deviceResult(await client.getDevice(id))));
+        }
+        return { sceneId, ...(name ? { name } : {}), status, confirmed: true as const };
+      });
     },
   };
 
