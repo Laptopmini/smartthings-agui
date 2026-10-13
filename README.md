@@ -75,7 +75,7 @@ npm run dev -w demo        # http://localhost:5173
 
 Sign in with a [personal access token](https://account.smartthings.com/tokens) (they expire after 24 hours) with device, scene and location scopes.
 
-**3. OAuth (optional, for anything longer-lived).** SmartThings' documented OAuth token endpoint needs the app's client secret, which can't live in a browser, so a small separate service does the exchange and refreshes. It stores nothing and never sees a conversation.
+**3. OAuth (optional, for anything longer-lived).** SmartThings' documented OAuth token endpoint needs the app's client secret, which can't live in a browser, so a small separate service does the exchange and refreshes. It stores nothing and never sees a conversation. (Sign-in goes through `oauthin-regional.api.smartthings.com`, the host the SmartThings CLI uses: the documented `api.smartthings.com/oauth/authorize` answered 403 Forbidden to every request when this was built.)
 
 ```sh
 # an OAuth-In app created with the SmartThings CLI (`smartthings apps:create`),
@@ -112,11 +112,12 @@ The integration tests run real CopilotKit and `@ag-ui/client` against the real P
 
 ## What was tested, and what wasn't
 
-Tested (13 Oct 2026): `@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, React 19.3, Node 24.14, Python 3.14.7; headless Chromium (Playwright 1.58.2); a hosted model against SmartThings virtual devices (switch, dimmer, colour bulb, lock, thermostat, contact and multi sensors, garage door), including multi-turn conversations, confirmations and refusals.
+Tested (13 Oct 2026): `@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, React 19.3, Node 24.14, Python 3.14.7; headless Chromium (Playwright 1.58.2); a hosted model against SmartThings virtual devices (switch, dimmer, colour bulb, lock, thermostat, contact and multi sensors, garage door), including multi-turn conversations, confirmations and refusals. OAuth end to end with a real OAuth-In app (created with the CLI): sign-in, code exchange, commands with the OAuth token, and a token refresh followed by another command.
+
+Also not yet verified: whether SmartThings rotates refresh tokens (both cases are handled), and refresh after a real 24-hour expiry (the refresh was triggered manually).
 
 Not yet verified:
 - Local models (LM Studio / Gemma): planned after the initial release. Only one hosted model has been tested.
-- OAuth end to end with a real OAuth-In app (the exchange service and browser flow are tested against fakes only).
 - Real hardware, `run_scene` against real scenes, and capability versions other than 1.
 - Other browsers and headed mode (only headless Chromium was used); mobile layouts.
 
