@@ -2,7 +2,9 @@ import { jsonSchemaParameters, validateArguments } from "./capabilityTools";
 import { type Command, type DeviceSummary, type SmartThingsClient } from "./client";
 import {
   CONFIRM_COMMANDS,
+  CONFIRM_LABELS,
   PolicyError,
+  assertConfirmCommand,
   assertConfirmable,
   assertGenericAllowed,
   assertNoConfirmCapability,
@@ -20,6 +22,8 @@ export interface DeviceResult {
   state: DeviceState;
   /** The device has a lock, door, valve or security capability (policy.ts rule 2). */
   needsConfirmation?: boolean;
+  /** Set when the device hadn't reported the commanded state yet. */
+  pending?: string;
 }
 
 export interface ToolError {
@@ -28,10 +32,16 @@ export interface ToolError {
 
 export type ToolResult<T> = T | ToolError;
 
+/** Anything that answers "is this capability turned on?": a Set, or the live
+ *  ConfirmSettings the hook passes. */
+export interface CapabilitySet {
+  has(capability: ConfirmCapability): boolean;
+}
+
 export interface ToolOptions {
   /** CONFIRM capabilities the user has opted in to. Empty (the default) means
    *  locks, doors, valves and security systems can't be commanded at all. */
-  confirmCapabilities: ReadonlySet<ConfirmCapability>;
+  confirmCapabilities: CapabilitySet;
   /** Called with every device state a tool reads back, so cards already on
    *  screen can update (see useLiveDevices). */
   onDeviceResult?: (result: DeviceResult) => void;
@@ -40,10 +50,17 @@ export interface ToolOptions {
   shownDeviceIds?: () => string[];
   /** Wait before that read, for the scene to finish (ms; tests pass 0). */
   sceneSettleMs?: number;
+  /** Gaps between status re-reads while waiting for a device to report a
+   *  commanded state (ms). Default below; tests pass zeros. */
+  settleSchedule?: number[];
 }
 
 /** Capabilities that say nothing useful to a model choosing a tool. */
 const NOISE = new Set(["refresh", "healthCheck", "firmwareUpdate", "execute", "ocf", "bridge"]);
+
+/** Gaps between re-reads after a command (ms): reads at about 0, 0.8, 1.8
+ *  and 3.3 s, which covers the ~2 s a real lamp took to report. */
+const SETTLE_SCHEDULE_MS = [800, 1000, 1500];
 
 /** Most cards in one show_devices call (one status read each). */
 const MAX_CARDS = 12;
@@ -126,7 +143,31 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
   }
 
   /** Common path for every non-confirm command: rule 2, capability present. */
-  async function commandDevice(deviceId: string, commands: Command[]): Promise<DeviceResult> {
+  /** Read the device back after a command, re-reading a few times until it
+   *  reports the expected state. Real devices report late: a Zigbee lamp took
+   *  1.7–2.4 s (13 Oct 2026), so an immediate read returned the old state and
+   *  the model, seeing "still off", retried, drawing a card each time. Virtual
+   *  devices report at once, so the first read usually settles it. At most 4
+   *  reads per command: SmartThings allows about 10 status reads per device
+   *  per window (`x-ratelimit-limit: 10`). */
+  async function readBack(device: DeviceSummary, expect?: (state: DeviceState) => boolean): Promise<DeviceResult> {
+    let result = await deviceResult(device);
+    if (!expect) return result;
+    for (const gap of options.settleSchedule ?? SETTLE_SCHEDULE_MS) {
+      if (expect(result.state)) return result;
+      await new Promise((r) => setTimeout(r, gap));
+      result = await deviceResult(device);
+    }
+    return expect(result.state)
+      ? result
+      : { ...result, pending: "The device accepted the command but hasn't reported the new state yet; it may still be changing. Don't send the command again." };
+  }
+
+  async function commandDevice(
+    deviceId: string,
+    commands: Command[],
+    expect?: (state: DeviceState) => boolean,
+  ): Promise<DeviceResult> {
     const device = await client.getDevice(String(deviceId));
     assertNoConfirmCapability(device);
     for (const c of commands) {
@@ -135,7 +176,7 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
       }
     }
     await client.executeCommands(device.deviceId, commands);
-    return deviceResult(device);
+    return readBack(device, expect);
   }
 
   const deviceId = { type: "string", description: "Device id from list_devices" };
@@ -182,7 +223,7 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
       }),
       handler: safely(async ({ deviceId, state }: { deviceId: string; state: string }) => {
         if (state !== "on" && state !== "off") throw new PolicyError(`state must be "on" or "off"; got ${JSON.stringify(state)}.`);
-        return commandDevice(deviceId, [{ capability: "switch", command: state }]);
+        return commandDevice(deviceId, [{ capability: "switch", command: state }], (s) => s.switch === state);
       }),
     },
     {
@@ -199,7 +240,10 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
       handler: safely(async ({ deviceId, level }: { deviceId: string; level: unknown }) => {
         const n = Math.round(toNumber("level", level));
         if (n < 0 || n > 100) throw new PolicyError(`level must be 0 to 100; got ${n}.`);
-        return commandDevice(deviceId, [{ capability: "switchLevel", command: "setLevel", arguments: [n] }]);
+        // Within 1: some dimmers round to their own steps.
+        return commandDevice(deviceId, [{ capability: "switchLevel", command: "setLevel", arguments: [n] }], (s) =>
+          s.level !== undefined ? Math.abs(s.level - n) <= 1 : false,
+        );
       }),
     },
     {
@@ -215,10 +259,14 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
       }),
       handler: safely(async ({ deviceId, color }: { deviceId: string; color: string }) => {
         const { hue, saturation } = hexToHueSaturation(String(color));
-        return commandDevice(deviceId, [
-          { capability: "colorControl", command: "setHue", arguments: [hue] },
-          { capability: "colorControl", command: "setSaturation", arguments: [saturation] },
-        ]);
+        return commandDevice(
+          deviceId,
+          [
+            { capability: "colorControl", command: "setHue", arguments: [hue] },
+            { capability: "colorControl", command: "setSaturation", arguments: [saturation] },
+          ],
+          (s) => s.hue !== undefined && Math.abs(s.hue - hue) <= 1,
+        );
       }),
     },
     {
@@ -255,7 +303,14 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
             });
           }
           if (!commands.length) throw new PolicyError("Give at least one of mode, heatingSetpoint, coolingSetpoint.");
-          return commandDevice(args.deviceId, commands);
+          const mode = args.mode ? String(args.mode) : undefined;
+          const heat = commands.find((c) => c.command === "setHeatingSetpoint")?.arguments?.[0] as number | undefined;
+          const cool = commands.find((c) => c.command === "setCoolingSetpoint")?.arguments?.[0] as number | undefined;
+          return commandDevice(args.deviceId, commands, (s) =>
+            (mode === undefined || s.thermostatMode === mode) &&
+            (heat === undefined || s.heatingSetpoint?.value === heat) &&
+            (cool === undefined || s.coolingSetpoint?.value === cool),
+          );
         },
       ),
     },
@@ -333,40 +388,53 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
       parameters: jsonSchemaParameters<Record<string, never>>({ type: "object", properties: {} }),
       handler: safely(async () => ({ scenes: await client.listScenes() })),
     },
-    {
-      name: "list_scenes",
-      description: "List the user's SmartThings scenes (id and name).",
-      parameters: jsonSchemaParameters<Record<string, never>>({ type: "object", properties: {} }),
-      handler: safely(async () => client.listScenes()),
-    },
   ];
 
-  const enabled = [...options.confirmCapabilities];
+  const allConfirm = Object.keys(CONFIRM_COMMANDS) as ConfirmCapability[];
 
-  /** Human-in-the-loop: the UI calls `execute` only after the person confirms. */
+  /** Human-in-the-loop: the UI calls `execute` only after the person confirms.
+   *
+   *  Always offered, whatever the settings: the *app* decides. When the
+   *  capability is turned off, the card says so and points at Safety
+   *  settings; nothing can run until it's on and the person presses the
+   *  button. (Earlier the tool was hidden while off, and the model explained
+   *  that itself, naming the internal tool, then kept refusing from memory
+   *  after the user turned Locks on.) */
   const confirmCommand = {
     name: "confirm_command",
     description:
-      "Lock/unlock, open/close a door, valve or garage, or arm/disarm security. The user sees a button in this chat " +
-      "and the command runs only if they press it; a result with confirmed: true means it has already run. " +
-      `Allowed now: ${enabled.map((c) => `${c} (${CONFIRM_COMMANDS[c].join("|")})`).join("; ") || "none"}.`,
-    available: enabled.length > 0,
+      "Lock/unlock, open/close a door, valve or garage, or arm/disarm security. Always use this for those devices: the " +
+      "app checks the user's safety settings and asks them with a button in this chat. A result with confirmed: true " +
+      "means it has already run; disabled: true means that control is turned off and the user has been told how to " +
+      `turn it on. Commands: ${allConfirm.map((c) => `${c} (${CONFIRM_COMMANDS[c].join("|")})`).join("; ")}.`,
     parameters: jsonSchemaParameters<ConfirmArgs>({
       type: "object",
       properties: {
         deviceId,
-        capability: { type: "string", enum: enabled, description: `capability (one of: ${enabled.join(", ")})` },
-        command: { type: "string", description: "command (see the allowed list in the description)" },
+        capability: { type: "string", enum: allConfirm, description: `capability (one of: ${allConfirm.join(", ")})` },
+        command: { type: "string", description: "command (see the list in the description)" },
       },
       required: ["deviceId", "capability", "command"],
     }),
-    /** Validates before showing the card; returns what the card should say. */
-    async prepare(args: Partial<ConfirmArgs>): Promise<ToolResult<{ device: DeviceSummary; summary: string }>> {
+    /** Validates before showing the card; returns what the card should say,
+     *  or that this control is turned off. */
+    async prepare(
+      args: Partial<ConfirmArgs>,
+    ): Promise<ToolResult<{ device: DeviceSummary; summary: string } | ConfirmDisabled>> {
       return attempt(async () => {
         const device = await client.getDevice(String(args.deviceId));
-        assertConfirmable(String(args.capability), String(args.command), options.confirmCapabilities);
-        if (!device.capabilities.includes(String(args.capability))) {
-          throw new PolicyError(`${device.label} doesn't have the ${args.capability} capability.`);
+        const capability = String(args.capability);
+        assertConfirmCommand(capability, String(args.command));
+        if (!device.capabilities.includes(capability)) {
+          throw new PolicyError(`${device.label} doesn't have the ${capability} capability.`);
+        }
+        if (!options.confirmCapabilities.has(capability)) {
+          return {
+            disabled: true as const,
+            capability,
+            label: CONFIRM_LABELS[capability],
+            message: `${CONFIRM_LABELS[capability]} are turned off in Safety settings, so ${device.label} can't be controlled from here.`,
+          };
         }
         return { device, summary: `${args.command} ${device.label}${device.room ? ` (${device.room})` : ""}` };
       });
@@ -381,8 +449,10 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
           throw new PolicyError(`${device.label} doesn't have the ${args.capability} capability.`);
         }
         await client.executeCommands(device.deviceId, [{ capability: args.capability, command: args.command }]);
+        const target = CONFIRM_TARGET[args.command];
+        const result = await readBack(device, target ? (s) => [s.lock, s.door, s.valve].includes(target) : undefined);
         // Tell the model plainly: the person pressed the button and it ran.
-        return { ...(await deviceResult(device)), confirmed: true };
+        return { ...result, confirmed: true };
       });
     },
   };
@@ -397,13 +467,13 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
       "press it; a result with confirmed: true means it has already run.",
     parameters: jsonSchemaParameters<{ sceneId: string }>({
       type: "object",
-      properties: { sceneId: { type: "string", description: "Scene id from list_scenes" } },
+      properties: { sceneId: { type: "string", description: "Scene id from the home context or show_scenes" } },
       required: ["sceneId"],
     }),
     async prepare(args: Partial<{ sceneId: string }>): Promise<ToolResult<{ summary: string }>> {
       return attempt(async () => {
         const scene = (await client.listScenes()).find((s) => s.sceneId === args.sceneId);
-        if (!scene) throw new PolicyError(`No scene with id ${args.sceneId}. Call list_scenes for valid ids.`);
+        if (!scene) throw new PolicyError(`No scene with id ${args.sceneId}. Use a scene id from the home context.`);
         return { summary: `Run the scene “${scene.name}”` };
       });
     },
@@ -424,6 +494,20 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
   };
 
   return { frontend, confirmCommand, runScene };
+}
+
+/** What a confirmed command should end in, to wait for (see readBack). */
+const CONFIRM_TARGET: Record<string, string> = { lock: "locked", unlock: "unlocked", open: "open", close: "closed" };
+
+export interface ConfirmDisabled {
+  disabled: true;
+  capability: ConfirmCapability;
+  label: string;
+  message: string;
+}
+
+export function isConfirmDisabled(value: unknown): value is ConfirmDisabled {
+  return typeof value === "object" && value !== null && (value as { disabled?: unknown }).disabled === true;
 }
 
 export interface ConfirmArgs {

@@ -125,8 +125,18 @@ const EFFECTS: Record<string, (args: unknown[]) => [string, string, unknown][]> 
   "fanSpeed.setFanSpeed": (a) => [["fanSpeed", "fanSpeed", a[0]]],
 };
 
-export function fakeSmartThings(devices = makeDevices()) {
+export interface FakeOptions {
+  /** After a command, this many status reads still return the old state
+   *  (a real Zigbee lamp took ~2 s to report). */
+  lagReads?: number;
+  /** Answer this many requests with 429 first. */
+  rateLimited?: number;
+}
+
+export function fakeSmartThings(devices = makeDevices(), fake: FakeOptions = {}) {
   const calls: { method: string; path: string; body?: unknown; auth?: string }[] = [];
+  const stale = new Map<string, { status: Status; reads: number }>();
+  let rateLimited = fake.rateLimited ?? 0;
   const scenesRun: string[] = [];
   const byId = new Map(devices.map((d) => [d.deviceId, d]));
 
@@ -137,6 +147,10 @@ export function fakeSmartThings(devices = makeDevices()) {
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     const auth = (init?.headers as Record<string, string> | undefined)?.Authorization;
     calls.push({ method, path: path + url.search, body, auth });
+    if (rateLimited > 0) {
+      rateLimited--;
+      return new Response("Too Many Requests", { status: 429 });
+    }
 
     if (path === "/devices") {
       // Pages of three, with an absolute `next` link that omits /v1, as the real API does.
@@ -175,10 +189,18 @@ export function fakeSmartThings(devices = makeDevices()) {
       return definition ? Response.json(definition) : new Response("not found", { status: 404 });
     }
     const status = path.match(/^\/devices\/([^/]+)\/components\/main\/status$/);
-    if (status && byId.has(status[1])) return Response.json(byId.get(status[1])!.status);
+    if (status && byId.has(status[1])) {
+      const old = stale.get(status[1]);
+      if (old && old.reads > 0) {
+        old.reads--;
+        return Response.json(old.status);
+      }
+      return Response.json(byId.get(status[1])!.status);
+    }
     const commands = path.match(/^\/devices\/([^/]+)\/commands$/);
     if (commands && method === "POST" && byId.has(commands[1])) {
       const device = byId.get(commands[1])!;
+      if (fake.lagReads) stale.set(device.deviceId, { status: structuredClone(device.status), reads: fake.lagReads });
       for (const c of body.commands as { capability: string; command: string; arguments?: unknown[] }[]) {
         const effect = EFFECTS[`${c.capability}.${c.command}`];
         if (!effect) return new Response("unsupported", { status: 422 });

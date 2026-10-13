@@ -1,13 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SmartThingsClient } from "../src/client";
 import type { ConfirmCapability } from "../src/policy";
 import { createTools, hexToHueSaturation } from "../src/tools";
-import { fakeSmartThings } from "./fakeSmartThings";
+import { fakeSmartThings, type FakeOptions } from "./fakeSmartThings";
 
-function setup(confirm: ConfirmCapability[] = []) {
-  const st = fakeSmartThings();
+function setup(confirm: ConfirmCapability[] = [], fake: FakeOptions = {}) {
+  const st = fakeSmartThings(undefined, fake);
   const client = new SmartThingsClient("tok", st.impl);
-  const tools = createTools(client, { confirmCapabilities: new Set(confirm) });
+  const tools = createTools(client, { confirmCapabilities: new Set(confirm), settleSchedule: [0, 0, 0] });
   const call = (name: string, args: Record<string, unknown> = {}) => {
     const tool = tools.frontend.find((t) => t.name === name);
     if (!tool) throw new Error(`no tool ${name}`);
@@ -151,17 +151,14 @@ describe("policy", () => {
     ).toBe("speed must be integer, 0 to 4; got 9.");
   });
 
-  it("doesn't offer confirm_command until the user opts in", () => {
-    expect(setup().tools.confirmCommand.available).toBe(false);
-    const { tools } = setup(["lock"]);
-    expect(tools.confirmCommand.available).toBe(true);
-    expect(tools.confirmCommand.description).toMatch(/Allowed now: lock \(lock\|unlock\)\.$/);
-  });
-
-  it("refuses confirm_command for a capability that isn't turned on, even if called anyway", async () => {
+  it("always offers confirm_command, and says plainly when a control is turned off", async () => {
     const { tools, st } = setup(["lock"]);
+    expect(tools.confirmCommand.description).not.toMatch(/Allowed now/);
     expect(await tools.confirmCommand.prepare({ deviceId: "valve", capability: "valve", command: "close" })).toEqual({
-      error: "Commands for valve are turned off. The user can allow them (with confirmation) in the app's settings.",
+      disabled: true,
+      capability: "valve",
+      label: "Valves",
+      message: "Valves are turned off in Safety settings, so Water Valve can't be controlled from here.",
     });
     expect(await tools.confirmCommand.execute({ deviceId: "valve", capability: "valve", command: "close" })).toHaveProperty(
       "error",
@@ -252,4 +249,35 @@ it("re-reads the devices shown in cards after a scene runs", async () => {
   });
   await tools.runScene.execute({ sceneId: "s-night" });
   expect(seen.sort()).toEqual(["bulb", "dimmer"]);
+});
+
+describe("waiting for real devices", () => {
+  it("re-reads until the device reports the commanded state", async () => {
+    const { call, st } = setup([], { lagReads: 2 });
+    const result = await call("set_switch", { deviceId: "dimmer", state: "on" });
+    expect(result.state.switch).toBe("on");
+    expect(result).not.toHaveProperty("pending");
+    expect(st.calls.filter((c) => c.path === "/devices/dimmer/components/main/status")).toHaveLength(3);
+  });
+
+  it("stops after a few reads and says the device hasn't reported yet", async () => {
+    const { call, st } = setup([], { lagReads: 10 });
+    const result = await call("set_switch", { deviceId: "dimmer", state: "on" });
+    expect(result.state.switch).toBe("off");
+    expect(result.pending).toMatch(/hasn't reported the new state yet.*Don't send the command again/);
+    // 1 read + 3 re-reads: within SmartThings' ~10 status reads per device.
+    expect(st.calls.filter((c) => c.path === "/devices/dimmer/components/main/status")).toHaveLength(4);
+  });
+
+  it("retries a rate-limited request once", async () => {
+    vi.useFakeTimers();
+    try {
+      const st = fakeSmartThings(undefined, { rateLimited: 1 });
+      const scenes = new SmartThingsClient("tok", st.impl).listScenes();
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(await scenes).toEqual([{ sceneId: "s-night", name: "Good night" }]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

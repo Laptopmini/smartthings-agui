@@ -90,10 +90,10 @@ it("runs list_devices then set_switch in the browser and finishes the turn", asy
   expect(agentRequests).toHaveLength(3);
   const names = agentRequests[0].tools.map((t) => t.name).sort();
   expect(names).toEqual([
+    "confirm_command",
     "execute_command",
     "get_device_status",
     "list_devices",
-    "list_scenes",
     "run_scene",
     "set_color",
     "set_level",
@@ -127,14 +127,26 @@ it("sends string numbers from the agent through to a typed command", async () =>
   expect(smartthings.byId.get("dimmer")!.status.switchLevel.level.value).toBe(30);
 });
 
-it("doesn't offer confirm_command until a capability is turned on", async () => {
-  const { smartthings, send } = mount([]);
-  await act(async () => {
-    await send("Unlock Front Door");
+it("tells the person a control is turned off, and commands nothing", async () => {
+  const { smartthings, agent, send } = mount([], true);
+  // Not awaited inside act(): the card answers the agent from an effect, and
+  // act() would hold that effect back until the run it's waiting for ends.
+  let run!: Promise<unknown>;
+  act(() => {
+    run = send("Unlock Front Door");
   });
-  expect(agentRequests[0].tools.map((t) => t.name)).not.toContain("confirm_command");
-  expect(smartthings.byId.get("lock")!.status.lock.lock.value).toBe("locked");
+  // Waiting for the card (outside act) lets its effect answer the agent.
+  expect((await screen.findByText(/Locks are turned off in Safety settings/, {}, { timeout: 10_000 })).textContent).toMatch(
+    /Front Door/,
+  );
+  await act(async () => {
+    await run;
+  });
+  // The tool is offered; the app, not the model, decides it's off.
+  expect(agentRequests[0].tools.map((t) => t.name)).toContain("confirm_command");
   expect(smartthings.commandsSent()).toHaveLength(0);
+  expect(smartthings.byId.get("lock")!.status.lock.lock.value).toBe("locked");
+  await waitFor(() => expect(String(agent.messages.at(-1)?.content)).toMatch(/turned off/));
 });
 
 it("unlocks only after the person clicks the confirmation button", async () => {

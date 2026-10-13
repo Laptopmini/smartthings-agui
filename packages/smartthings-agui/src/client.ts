@@ -11,6 +11,9 @@
 
 export const SMARTTHINGS_API = "https://api.smartthings.com/v1";
 
+/** Wait before the single retry of a rate-limited (429) request. */
+export const RATE_LIMIT_RETRY_MS = 2000;
+
 /** How long a device list is reused before it's fetched again. */
 const DEVICE_CACHE_MS = 30_000;
 
@@ -82,14 +85,23 @@ export class SmartThingsClient {
   private async request<T>(pathOrUrl: string, init?: RequestInit): Promise<T> {
     const url = pathOrUrl.startsWith("https://") ? pathOrUrl : `${SMARTTHINGS_API}${pathOrUrl}`;
     const token = typeof this.token === "string" ? this.token : await this.token();
-    const response = await this.fetchImpl(url, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        ...init?.headers,
-      },
-    });
+    const send = () =>
+      this.fetchImpl(url, {
+        ...init,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          ...init?.headers,
+        },
+      });
+    let response = await send();
+    if (response.status === 429) {
+      // Rate limited (status reads allow about 10 per device per window).
+      // The reset header isn't readable cross-origin, so wait a fixed 2 s and
+      // try once more rather than fail the tool call.
+      await new Promise((r) => setTimeout(r, RATE_LIMIT_RETRY_MS));
+      response = await send();
+    }
     if (!response.ok) {
       // 401 is the common one: personal tokens expire 24 h after creation.
       // 422 means SmartThings rejected the command's arguments.

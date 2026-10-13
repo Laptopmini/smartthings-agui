@@ -19,6 +19,8 @@ The agent ends each run when the model calls a frontend tool and never answers t
 
 **Context.** The device and scene list (one compact line each, about 60 characters a device) goes to the agent as AG-UI context, so most requests need no `list_devices` round trip.
 
+**Real devices report late.** A command is accepted at once, but a real device reports its new state later (a Zigbee lamp took 1.7–2.4 s), so a status read straight after the command returns the old state. The tools read back up to four times over about 3 s until the device reports what was asked, and otherwise say the change is still on its way (the model was retrying when it saw the old state, drawing a card each time). SmartThings allows about 10 status reads per device per window (`x-ratelimit-limit: 10`); a rate-limited request is retried once after 2 s.
+
 **Typed tools.** `set_switch`, `set_level`, `set_color`, `set_thermostat` and `get_device_status` cover the common capabilities with a few typed parameters, which models call much more reliably than one generic tool. Everything else goes through `execute_command`, which only reaches an allowlist of capabilities and checks the arguments against the capability definition from the public API (`GET /v1/capabilities/{id}/{version}`, whose command arguments are JSON Schema). Arguments are coerced from strings where needed, because the LlamaIndex router sends every frontend-tool parameter as a string (below).
 
 ## Cards
@@ -40,7 +42,7 @@ Catalog definitions use `zod/v3`: with Zod 4 the renderer silently drops every p
 
 All in [`policy.ts`](../packages/smartthings-agui/src/policy.ts):
 
-1. Commands for `lock`, `garageDoorControl`, `doorControl`, `securitySystem` and `valve` are denied unless the user turns that capability on in the app. Until then the `confirm_command` tool isn't offered to the agent at all.
+1. Commands for `lock`, `garageDoorControl`, `doorControl`, `securitySystem` and `valve` are denied unless the user turns that capability on in the app. The agent can always *ask* (the app, not the model, decides): while the capability is off, the card says so in plain words and offers to open the settings, and if the person turns it on, the same card becomes the confirmation below. Turning it on never runs anything by itself. (Hiding the tool while off made the model explain the refusal itself, naming internals, and keep refusing from memory after the setting changed.)
 2. When it's on, `confirm_command` is human-in-the-loop: a card says what will happen, and the command runs only when the person presses the button. The policy is checked again at that moment.
 3. A device that has any of those capabilities can't be commanded through any other tool, and its card has no controls. (Some valves and garage openers also expose `switch`.)
 4. Scenes the agent runs always ask first: a scene can unlock a door, and the public API doesn't say what a scene contains (`GET /scenes/{id}` returned `"devices": []` both for a lighting scene and for a test scene known to switch three devices). On a scene card, the person's own press is the confirmation. Since the devices a scene touches aren't known, the devices already shown in cards are read once more after it runs, so the cards reflect it.

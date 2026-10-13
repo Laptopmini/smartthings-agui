@@ -1,9 +1,10 @@
 import { useAgentContext, useFrontendTools, useHumanInTheLoop } from "@copilotkit/react-core/v2";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Surface, type UserAction } from "./a2ui/Surface";
 import { deviceSurface, sceneSurface } from "./a2ui/surfaces";
 import { ConfirmCard, DeviceListCard, ErrorCard, PendingCard, parseResult } from "./cards";
 import type { DeviceSummary, SceneSummary, SmartThingsClient } from "./client";
+import { ConfirmSettings } from "./confirmSettings";
 import { LiveDevices } from "./liveDevices";
 import type { ConfirmCapability } from "./policy";
 import { createTools, isToolError, type ConfirmArgs, type DeviceResult } from "./tools";
@@ -14,6 +15,10 @@ export interface SmartThingsToolsOptions {
   confirmCapabilities?: readonly ConfirmCapability[];
   /** Send the device and scene list to the agent as context (default true). */
   context?: boolean;
+  /** Opens the app's safety settings. When given, a request for a control
+   *  that's turned off shows a button for it, and the card continues to the
+   *  confirmation if the person turns the control on. */
+  onOpenSettings?: () => void;
 }
 
 type Tools = ReturnType<typeof createTools>;
@@ -121,17 +126,24 @@ function useHomeContext(client: SmartThingsClient, enabled: boolean) {
  *  CopilotKit. Handlers run in the browser with the user's token; the agent
  *  sees only arguments and results. */
 export function useSmartThingsTools(client: SmartThingsClient, options: SmartThingsToolsOptions = {}) {
-  const key = [...(options.confirmCapabilities ?? [])].sort().join(",");
   // One live store per client: every card on screen shares it.
   const live = useMemo(() => new LiveDevices(), [client]);
+  // Settings read live by tools and cards (see confirmSettings.ts), updated
+  // before paint so a request made right after a change already sees it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const settings = useMemo(() => new ConfirmSettings(options.confirmCapabilities ?? []), []);
+  const settingsKey = [...(options.confirmCapabilities ?? [])].sort().join(",");
+  useLayoutEffect(() => {
+    settings.set(settingsKey ? (settingsKey.split(",") as ConfirmCapability[]) : []);
+  }, [settings, settingsKey]);
   const tools = useMemo(
     () =>
       createTools(client, {
-        confirmCapabilities: new Set(key ? (key.split(",") as ConfirmCapability[]) : []),
+        confirmCapabilities: settings,
         onDeviceResult: (device) => live.set(device),
         shownDeviceIds: () => live.ids(),
       }),
-    [client, key, live],
+    [client, settings, live],
   );
 
   useFrontendTools(
@@ -148,21 +160,21 @@ export function useSmartThingsTools(client: SmartThingsClient, options: SmartThi
       name: confirmCommand.name,
       description: confirmCommand.description,
       parameters: confirmCommand.parameters,
-      // Not offered to the agent at all until the user opts in to a capability.
-      available: confirmCommand.available,
       render: (props) => (
         <ConfirmCard
           {...props}
           prepare={confirmCommand.prepare}
           execute={confirmCommand.execute}
           confirmLabel={props.args.command ? capitalize(String(props.args.command)) : "Confirm"}
+          onOpenSettings={options.onOpenSettings}
+          settings={settings}
           renderDevice={(device) => (
             <DevicesSurface id={`confirm_command-${props.toolCallId}`} title="" devices={[device]} tools={tools} live={live} />
           )}
         />
       ),
     },
-    [tools],
+    [tools, options.onOpenSettings],
   );
 
   useHumanInTheLoop<{ sceneId: string }>(

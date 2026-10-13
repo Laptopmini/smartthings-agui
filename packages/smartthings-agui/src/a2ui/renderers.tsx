@@ -72,7 +72,8 @@ function LevelSlider({ level, label, onCommit }: { level: number; label: string;
       max={100}
       value={value}
       aria-label={`${label} level`}
-      style={{ width: "100%", margin: 0, boxSizing: "border-box" }}
+      // An explicit accent: in dark mode WebKit's default track all but vanished.
+      style={{ width: "100%", margin: 0, boxSizing: "border-box", accentColor: "#3b82f6" }}
       onChange={(e) => setValue(Number(e.target.value))}
       onPointerUp={() => onCommit(value)}
       onKeyUp={() => onCommit(value)}

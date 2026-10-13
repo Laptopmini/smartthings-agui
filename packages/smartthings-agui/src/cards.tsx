@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import type { DeviceSummary } from "./client";
 import type { DeviceState } from "./status";
-import { isToolError, type DeviceResult, type ToolResult } from "./tools";
+import { isConfirmDisabled, isToolError, type ConfirmDisabled, type DeviceResult, type ToolResult } from "./tools";
 
 /** Inline styles keep the package free of a stylesheet the host app would have
  *  to import. Colours inherit from the chat, with translucent fills, so the
@@ -33,6 +33,9 @@ const button: CSSProperties = {
   cursor: "pointer",
   font: "inherit",
 };
+
+const noSubscribe = () => () => {};
+const zero = () => 0;
 
 /** Tool results reach a renderer as the JSON string the agent saw. */
 export function parseResult<T>(result: string | undefined): ToolResult<T> | undefined {
@@ -121,20 +124,33 @@ export function DeviceListCard({ devices }: { devices: Pick<DeviceSummary, "devi
   );
 }
 
-/** The human-in-the-loop card: validate, ask, then run only on "Confirm". */
+type Prepared = ToolResult<{ summary: string } | ConfirmDisabled>;
+
+/** The human-in-the-loop card: validate, ask, then run only on "Confirm".
+ *
+ *  When the control is turned off in the app's settings, the card says so in
+ *  plain words. With `onOpenSettings` it also offers to open them, and stays
+ *  open: if the person turns the control on, `prepare` changes (the tools are
+ *  rebuilt with the new settings) and this card turns into the usual
+ *  confirmation. Turning it on never runs anything by itself. */
 export function ConfirmCard<A extends Record<string, unknown>>(props: {
   args: Partial<A>;
   status: "inProgress" | "executing" | "complete";
   result?: string;
   respond?: (result: unknown) => Promise<void>;
-  prepare: (args: Partial<A>) => Promise<ToolResult<{ summary: string }>>;
+  prepare: (args: Partial<A>) => Promise<Prepared>;
   execute: (args: A) => Promise<unknown>;
   confirmLabel: string;
   /** How to show the device after a confirmed command (default: DeviceCard). */
   renderDevice?: (device: DeviceResult) => ReactNode;
+  /** Opens the app's Safety settings, offered when a control is turned off. */
+  onOpenSettings?: () => void;
+  /** Live settings: the card re-checks when they change (see confirmSettings.ts). */
+  settings?: { subscribe: (listener: () => void) => () => void; getVersion: () => number };
 }) {
-  const { args, status, result, respond, prepare, execute, confirmLabel, renderDevice } = props;
-  const [prepared, setPrepared] = useState<ToolResult<{ summary: string }>>();
+  const { args, status, result, respond, prepare, execute, confirmLabel, renderDevice, onOpenSettings, settings } = props;
+  const settingsVersion = useSyncExternalStore(settings?.subscribe ?? noSubscribe, settings?.getVersion ?? zero);
+  const [prepared, setPrepared] = useState<Prepared>();
   const [busy, setBusy] = useState(false);
   const answered = useRef(false);
 
@@ -145,25 +161,27 @@ export function ConfirmCard<A extends Record<string, unknown>>(props: {
   };
 
   useEffect(() => {
-    if (status !== "executing") return;
+    if (status !== "executing" || answered.current) return;
     let live = true;
     prepare(args).then((p) => {
       if (!live) return;
       setPrepared(p);
-      // Nothing to confirm (unknown device, capability turned off...): tell
-      // the agent why instead of showing a button that can't work.
-      if (isToolError(p)) void answer(p);
+      // Nothing to confirm (unknown device, bad command): tell the agent why
+      // instead of showing a button that can't work. A control that's merely
+      // turned off waits for the person when the app can open its settings.
+      if (isToolError(p) || (isConfirmDisabled(p) && !onOpenSettings)) void answer(p);
     });
     return () => {
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, JSON.stringify(args)]);
+  }, [status, JSON.stringify(args), prepare, settingsVersion]);
 
   if (status === "complete") {
     const done = parseResult<Record<string, unknown>>(result);
     if (!done || isToolError(done)) return <ErrorCard message={done?.error ?? "No result"} />;
     if ("declined" in done) return <PendingCard text="Cancelled." />;
+    if (isConfirmDisabled(done)) return <PendingCard text={done.message} />;
     if ("state" in done) {
       const device = done as unknown as DeviceResult;
       return renderDevice ? <>{renderDevice(device)}</> : <DeviceCard device={device} />;
@@ -173,6 +191,28 @@ export function ConfirmCard<A extends Record<string, unknown>>(props: {
   }
   if (status === "inProgress" || !prepared) return <PendingCard text="Preparing…" />;
   if (isToolError(prepared)) return <ErrorCard message={prepared.error} />;
+  if (isConfirmDisabled(prepared)) {
+    return (
+      <div style={card} data-testid="confirm-disabled">
+        <div style={{ marginBottom: onOpenSettings ? 8 : 0 }}>{prepared.message}</div>
+        {onOpenSettings && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button style={{ ...button, fontWeight: 600 }} onClick={onOpenSettings}>
+              Open Safety settings
+            </button>
+            <button
+              style={button}
+              onClick={() =>
+                answer({ ...prepared, message: `${prepared.message} The user chose not to turn it on now.` })
+              }
+            >
+              Not now
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={card} data-testid="confirm-card">

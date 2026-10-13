@@ -33,7 +33,7 @@ SmartThings capabilities are registered with CopilotKit as **frontend tools**: t
 | `show_devices`, `show_scenes` | Show a room (or chosen devices) as cards with on/off and dimmer controls, or the scenes as buttons. The person can use them directly, without another agent turn. |
 | `set_switch`, `set_level`, `set_color`, `set_thermostat` | Typed tools for the common capabilities. Small models call these much more reliably than a generic one. |
 | `execute_command` | Anything else on an allowlist (lighting, climate, shades, fans, media), with arguments checked against the capability's definition from the public API. |
-| `confirm_command` | Locks, doors, garage doors, valves and security systems. Off by default; asks the person before anything happens. |
+| `confirm_command` | Locks, doors, garage doors, valves and security systems. Off by default (the card says so and points at the settings); when on, asks the person before anything happens. |
 | `run_scene` | Runs a scene after the person confirms. |
 
 More detail (the frontend-tool loop, the cards, sign-in, the agent's router fixes, SmartThings behaviours to expect): [docs/how-it-works.md](docs/how-it-works.md).
@@ -42,7 +42,7 @@ More detail (the frontend-tool loop, the cards, sign-in, the agent's router fixe
 
 An agent unlocking a door is the failure that matters, so:
 
-1. **Deny by default.** Commands for `lock`, `garageDoorControl`, `doorControl`, `securitySystem` and `valve` are refused unless the user turns that capability on in *Safety settings*. Until then `confirm_command` isn't even offered to the agent.
+1. **Deny by default.** Commands for `lock`, `garageDoorControl`, `doorControl`, `securitySystem` and `valve` are refused unless the user turns that capability on in *Safety settings*. Until then, a request ends in a card saying the control is off, with a button that opens the settings; turning it on never runs anything by itself.
 2. **A person confirms.** When it is on, the agent can only *ask*: a card shows what will happen, and the command runs only when the person presses the button. The policy is checked again at that moment.
 3. **No side doors.** A device that has any of those capabilities can't be commanded through any other tool (some valves also expose `switch`), and `execute_command` only reaches an allowlist. `execute`, `ocf`, firmware updates, ovens and vendor-specific capabilities are out of reach.
 4. **Scenes always ask**, because a scene can unlock a door and the public API doesn't reliably say what a scene contains. (When the agent runs one, a confirmation card asks; on a scene card the person's own press is the confirmation.)

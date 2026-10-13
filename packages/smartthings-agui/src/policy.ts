@@ -32,6 +32,15 @@ export type ConfirmCapability = keyof typeof CONFIRM_COMMANDS;
 
 export const CONFIRM_CAPABILITIES: ReadonlySet<string> = new Set(Object.keys(CONFIRM_COMMANDS));
 
+/** How the app's Safety settings name each one. */
+export const CONFIRM_LABELS: Record<ConfirmCapability, string> = {
+  lock: "Locks",
+  garageDoorControl: "Garage doors",
+  doorControl: "Doors",
+  valve: "Valves",
+  securitySystem: "Security system",
+};
+
 export function isConfirmCapability(capability: string): capability is ConfirmCapability {
   return CONFIRM_CAPABILITIES.has(capability);
 }
@@ -72,22 +81,25 @@ export function assertNoConfirmCapability(device: { label: string; capabilities:
   }
 }
 
-/** Rule 1, checked both when the tool is offered and again at confirmation time. */
-export function assertConfirmable(
-  capability: string,
-  command: string,
-  enabled: ReadonlySet<ConfirmCapability>,
-): asserts capability is ConfirmCapability {
+/** A valid confirm-only command, whether or not it's turned on. */
+export function assertConfirmCommand(capability: string, command: string): asserts capability is ConfirmCapability {
   if (!isConfirmCapability(capability)) {
     throw new PolicyError(`${capability} doesn't need confirmation; use the regular tools.`);
   }
-  if (!enabled.has(capability)) {
-    throw new PolicyError(
-      `Commands for ${capability} are turned off. The user can allow them (with confirmation) in the app's settings.`,
-    );
-  }
   if (!(CONFIRM_COMMANDS[capability] as readonly string[]).includes(command)) {
     throw new PolicyError(`${capability} commands are: ${CONFIRM_COMMANDS[capability].join(", ")}.`);
+  }
+}
+
+/** Rule 1, checked again at the moment the person confirms. */
+export function assertConfirmable(
+  capability: string,
+  command: string,
+  enabled: { has(capability: ConfirmCapability): boolean },
+): asserts capability is ConfirmCapability {
+  assertConfirmCommand(capability, command);
+  if (!enabled.has(capability)) {
+    throw new PolicyError(`${CONFIRM_LABELS[capability]} are turned off in the app's Safety settings.`);
   }
 }
 

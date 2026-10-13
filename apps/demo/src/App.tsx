@@ -1,8 +1,9 @@
 import { HttpAgent } from "@ag-ui/client";
 import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CONFIRM_COMMANDS,
+  CONFIRM_LABELS,
   OAuthSession,
   SmartThingsClient,
   beginSignIn,
@@ -30,13 +31,6 @@ const OAUTH: OAuthConfig | null =
       }
     : null;
 
-const CAPABILITY_LABELS: Record<ConfirmCapability, string> = {
-  lock: "Locks",
-  garageDoorControl: "Garage doors",
-  doorControl: "Doors",
-  valve: "Valves",
-  securitySystem: "Security system",
-};
 
 const SETTINGS_KEY = "smartthings-agui:confirm-capabilities";
 
@@ -51,14 +45,36 @@ function loadOptIns(): ConfirmCapability[] {
   }
 }
 
-function Tools({ client, confirm }: { client: SmartThingsClient; confirm: ConfirmCapability[] }) {
-  useSmartThingsTools(client, { confirmCapabilities: confirm });
+/** CopilotKit's chat switches to its dark theme under a `.dark` ancestor; follow
+ *  the system setting (the page's own colours follow it through CSS). */
+function useDarkClass() {
+  useEffect(() => {
+    const query = matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => document.documentElement.classList.toggle("dark", query.matches);
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
+  }, []);
+}
+
+function Tools(props: { client: SmartThingsClient; confirm: ConfirmCapability[]; onOpenSettings: () => void }) {
+  useSmartThingsTools(props.client, { confirmCapabilities: props.confirm, onOpenSettings: props.onOpenSettings });
   return null;
 }
 
-function Settings({ value, onChange }: { value: ConfirmCapability[]; onChange: (v: ConfirmCapability[]) => void }) {
+function Settings(props: {
+  value: ConfirmCapability[];
+  onChange: (v: ConfirmCapability[]) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { value, onChange } = props;
   return (
-    <details className="st-settings">
+    <details
+      className="st-settings"
+      open={props.open}
+      onToggle={(e) => props.onOpenChange((e.currentTarget as HTMLDetailsElement).open)}
+    >
       <summary>Safety settings</summary>
       {/* Floats below the header, so opening it never reflows the header
           (on a phone it squeezed the title and "Sign out" onto two lines). */}
@@ -67,7 +83,7 @@ function Settings({ value, onChange }: { value: ConfirmCapability[]; onChange: (
         Off by default. When on, the assistant can ask to control these, and nothing happens until you press the
         confirmation button.
       </p>
-      {(Object.keys(CAPABILITY_LABELS) as ConfirmCapability[]).map((capability) => (
+      {(Object.keys(CONFIRM_LABELS) as ConfirmCapability[]).map((capability) => (
         <label key={capability}>
           <input
             type="checkbox"
@@ -76,7 +92,7 @@ function Settings({ value, onChange }: { value: ConfirmCapability[]; onChange: (
               onChange(e.target.checked ? [...value, capability] : value.filter((c) => c !== capability))
             }
           />{" "}
-          {CAPABILITY_LABELS[capability]}
+          {CONFIRM_LABELS[capability]}
         </label>
       ))}
       </div>
@@ -92,6 +108,10 @@ export default function App() {
   const [session, setSession] = useState<OAuthSession | null>(null);
   const [authError, setAuthError] = useState<string>();
   const [confirm, setConfirm] = useState<ConfirmCapability[]>(loadOptIns);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Stable, so the tools don't re-register on every render.
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  useDarkClass();
   const client = useMemo(() => {
     if (session) return new SmartThingsClient(() => session.accessToken());
     return signedIn ? new SmartThingsClient(token) : null;
@@ -122,7 +142,9 @@ export default function App() {
     <div className="st-app">
       <header className="st-header">
         <strong>SmartThings AG-UI</strong>
-        {client && <Settings value={confirm} onChange={updateConfirm} />}
+        {client && (
+          <Settings value={confirm} onChange={updateConfirm} open={settingsOpen} onOpenChange={setSettingsOpen} />
+        )}
         {session && import.meta.env.DEV && (
           // Dev only: exercise the refresh path without waiting ~24 h.
           <button
@@ -152,7 +174,7 @@ export default function App() {
 
       {client ? (
         <CopilotKit selfManagedAgents={{ default: agent }} enableInspector={false}>
-          <Tools client={client} confirm={confirm} />
+          <Tools client={client} confirm={confirm} onOpenSettings={openSettings} />
           <main className="st-chat">
             <CopilotChat
               labels={{
