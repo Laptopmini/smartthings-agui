@@ -8,6 +8,8 @@ export default defineConfig({
     server: { deps: { inline: [/@copilotkit/, /@ag-ui/] } },
     projects: [
       { extends: true, test: { name: "unit", include: ["test/*.test.ts"] } },
+      // Calls api.smartthings.com; skipped unless SMARTTHINGS_TOKEN is set.
+      { extends: true, test: { name: "live", include: ["test/live/*.live.test.ts"], environment: "node" } },
       {
         extends: true,
         test: {
