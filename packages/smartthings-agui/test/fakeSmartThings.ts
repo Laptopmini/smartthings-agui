@@ -91,6 +91,8 @@ const EFFECTS: Record<string, (args: unknown[]) => [string, string, unknown][]> 
   "switch.on": () => [["switch", "switch", "on"]],
   "switch.off": () => [["switch", "switch", "off"]],
   "switchLevel.setLevel": (a) => [["switchLevel", "level", a[0]]],
+  "colorControl.setHue": (a) => [["colorControl", "hue", a[0]]],
+  "colorControl.setSaturation": (a) => [["colorControl", "saturation", a[0]]],
   "colorControl.setColor": (a) => {
     const c = a[0] as { hue: number; saturation: number };
     return [

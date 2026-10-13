@@ -14,9 +14,13 @@ Environment (any OpenAI-compatible endpoint; LM Studio by default):
     AGENT_API_BASE   default http://localhost:1234/v1
     AGENT_API_KEY    the endpoint's key (LM Studio's, or a hosted provider's)
     AGENT_MODEL      default google/gemma-4-26b-a4b
+    AGENT_EXTRA_BODY optional JSON merged into each request body, for
+                     provider options. Example: {"example_option": true}
+                     keeps its <think> reasoning out of the chat reply.
 """
 
 import argparse
+import json
 import os
 
 from fastapi import FastAPI
@@ -62,6 +66,9 @@ def build_llm(scripted: bool):
         is_function_calling_model=True,
         context_window=32768,
         timeout=300,
+        additional_kwargs=(
+            {"extra_body": json.loads(os.environ["AGENT_EXTRA_BODY"])} if os.getenv("AGENT_EXTRA_BODY") else {}
+        ),
     )
 
 

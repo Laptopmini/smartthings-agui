@@ -38,9 +38,9 @@ def _call(name: str, kwargs: dict) -> ChatMessage:
 
 
 def _is_tool_result(message: ChatMessage) -> bool:
-    # llama-index-protocols-ag-ui 0.5.0 converts an AG-UI `tool` message into a
-    # *user* message carrying `tool_call_id` (its "opinionated hack" until core
-    # supports tool messages), so the role alone can't identify a tool result.
+    # Our router sends tool results as `tool` messages; the stock router (used
+    # in tests that pin upstream behaviour) sends them as *user* messages
+    # carrying `tool_call_id`. Accept both.
     return message.role == MessageRole.TOOL or "tool_call_id" in message.additional_kwargs
 
 

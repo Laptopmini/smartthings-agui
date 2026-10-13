@@ -57,9 +57,11 @@ function toArray(value: unknown): unknown[] {
   return [value];
 }
 
-/** Hex colour → SmartThings hue/saturation (both 0–100). Sent as hue and
- *  saturation rather than `{hex}` because every colorControl device accepts
- *  those, while hex support varies by driver. */
+/** Hex colour → SmartThings hue/saturation (both 0–100). set_color sends them
+ *  as `setHue` + `setSaturation` rather than `setColor`: the VIRTUAL_COLOR_BULB
+ *  prototype accepts `setColor` (200) but ignores it in both the `{hue,
+ *  saturation}` and `{hex}` forms, while `setHue`/`setSaturation` take effect
+ *  (checked 13 Oct 2026). Both are standard colorControl commands. */
 export function hexToHueSaturation(hex: string): { hue: number; saturation: number } {
   const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   if (!match) throw new PolicyError(`color must be a hex colour like #FF8800; got ${JSON.stringify(hex)}.`);
@@ -189,9 +191,13 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
         },
         required: ["deviceId", "color"],
       }),
-      handler: safely(async ({ deviceId, color }: { deviceId: string; color: string }) =>
-        commandDevice(deviceId, [{ capability: "colorControl", command: "setColor", arguments: [hexToHueSaturation(String(color))] }]),
-      ),
+      handler: safely(async ({ deviceId, color }: { deviceId: string; color: string }) => {
+        const { hue, saturation } = hexToHueSaturation(String(color));
+        return commandDevice(deviceId, [
+          { capability: "colorControl", command: "setHue", arguments: [hue] },
+          { capability: "colorControl", command: "setSaturation", arguments: [saturation] },
+        ]);
+      }),
     },
     {
       name: "set_thermostat",
