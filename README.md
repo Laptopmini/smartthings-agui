@@ -6,6 +6,8 @@ Talk to your SmartThings home from any [AG-UI](https://docs.ag-ui.com) agent, wi
 
 *Recorded against SmartThings virtual devices .*
 
+![Asking for a room shows a card per device; pressing a card's button switches the device without asking the agent; the cards stay in sync](docs/demo-cards.gif)
+
 > Not affiliated with or endorsed by Samsung. "SmartThings" is used only to describe what this works with.
 
 ## How it works
@@ -15,7 +17,7 @@ Browser (React + CopilotKit, direct connect)
   ├─ SmartThings token (personal token, or OAuth)      ← never sent to the agent
   ├─ frontend tools  → fetch api.smartthings.com        (CORS allows it)
   ├─ confirmation cards for locks, doors, valves, security, scenes
-  ├─ device cards rendered from each tool's result
+  ├─ device cards (A2UI surfaces built in the browser) with live state and controls
   └─ the home (devices, rooms, scenes) as agent context
         │  AG-UI over HTTP/SSE
         ▼
@@ -23,11 +25,14 @@ Any AG-UI agent. Reference: Python, FastAPI + the LlamaIndex AG-UI router.
 It has no SmartThings code and no SmartThings credentials.
 ```
 
+**Cards.** Device and scene cards are [A2UI](https://a2ui.org) v0.9 surfaces from a small catalog (`TileGrid`, `DeviceTile`, `SceneButton`). The agent decides *what* to show (`show_devices(room)`); the browser builds the surface from live device data, so the model never writes UI JSON and never needs the catalog's schemas in its context. Every status read updates one shared store, and every card showing that device follows: a lamp switched by the agent updates the card you clicked a minute ago.
+
 SmartThings capabilities are registered with CopilotKit as **frontend tools**: the agent decides to call `set_level`, the browser runs it against `api.smartthings.com` with the user's token, and the agent gets the result back. The same pattern as a Home Assistant client whose tools run at home, for a platform that has no in-app conversation surface to host one.
 
 | Tool | What it does |
 |---|---|
 | `list_devices`, `get_device_status`, `list_scenes` | Read the home. The device and scene list is also sent as context, so most requests need no lookup. |
+| `show_devices`, `show_scenes` | Show a room (or chosen devices) as cards with on/off and dimmer controls, or the scenes as buttons. The person can use them directly, without another agent turn. |
 | `set_switch`, `set_level`, `set_color`, `set_thermostat` | Typed tools for the common capabilities. Small models call these much more reliably than a generic one. |
 | `execute_command` | Anything else on an allowlist (lighting, climate, shades, fans, media), with arguments checked against the capability's definition from the public API. |
 | `confirm_command` | Locks, doors, garage doors, valves and security systems. Off by default; asks the person before anything happens. |
@@ -40,8 +45,9 @@ An agent unlocking a door is the failure that matters, so:
 1. **Deny by default.** Commands for `lock`, `garageDoorControl`, `doorControl`, `securitySystem` and `valve` are refused unless the user turns that capability on in *Safety settings*. Until then `confirm_command` isn't even offered to the agent.
 2. **A person confirms.** When it is on, the agent can only *ask*: a card shows what will happen, and the command runs only when the person presses the button. The policy is checked again at that moment.
 3. **No side doors.** A device that has any of those capabilities can't be commanded through any other tool (some valves also expose `switch`), and `execute_command` only reaches an allowlist. `execute`, `ocf`, firmware updates, ovens and vendor-specific capabilities are out of reach.
-4. **Scenes always ask**, because a scene can unlock a door and the public API doesn't reliably say what a scene contains.
+4. **Scenes always ask**, because a scene can unlock a door and the public API doesn't reliably say what a scene contains. (When the agent runs one, a confirmation card asks; on a scene card the person's own press is the confirmation.)
 5. **The token stays in the browser.** The agent sees tool arguments and results only. Tokens are kept in memory, not storage.
+6. **Card controls follow the same rules.** A button or slider on a card runs through the same tool handlers as the agent, and locks, doors, valves and security systems get no controls on their cards at all.
 
 What the model *does* see: with a hosted model, the conversation, device and room names, and device states go to that model provider, as with any cloud assistant. Never your SmartThings token. A local model keeps all of it at home (see "not yet verified" below).
 
@@ -112,7 +118,7 @@ The integration tests run real CopilotKit and `@ag-ui/client` against the real P
 
 ## What was tested, and what wasn't
 
-Tested (13 Oct 2026): `@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, React 19.3, Node 24.14, Python 3.14.7; headless Chromium (Playwright 1.58.2); a hosted model against SmartThings virtual devices (switch, dimmer, colour bulb, lock, thermostat, contact and multi sensors, garage door), including multi-turn conversations, confirmations and refusals. OAuth end to end with a real OAuth-In app (created with the CLI): sign-in, code exchange, commands with the OAuth token, and a token refresh followed by another command.
+Tested (13 Oct 2026): `@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, `@copilotkit/a2ui-renderer` 1.79.0 (`@a2ui/web_core` 0.10.4, A2UI v0.9), React 19.3, Node 24.14, Python 3.14.7; headless Chromium (Playwright 1.58.2); a hosted model against SmartThings virtual devices (switch, dimmer, colour bulb, lock, thermostat, contact and multi sensors, garage door), including multi-turn conversations, confirmations and refusals. Room and scene cards, card controls without an agent turn, and cards updating after the agent changes the same device. OAuth end to end with a real OAuth-In app (created with the CLI): sign-in, code exchange, commands with the OAuth token, and a token refresh followed by another command.
 
 Also not yet verified: whether SmartThings rotates refresh tokens (both cases are handled), and refresh after a real 24-hour expiry (the refresh was triggered manually).
 
@@ -123,7 +129,7 @@ Not yet verified:
 
 ## Upstream fixes
 
-Building this turned up bugs in the LlamaIndex AG-UI router (system prompt duplicated every run, client context ignored, tool history sent as text so models stop calling tools, tool parameter types lost). The reference agent works around them in [`agent/router.py`](agent/router.py), and tests pin each upstream behaviour.
+Building this turned up bugs in the LlamaIndex AG-UI router (system prompt duplicated every run, client context ignored, tool history sent as text so models stop calling tools, tool parameter types lost) and a typing gap in CopilotKit's A2UI renderer. The reference agent works around them in [`agent/router.py`](agent/router.py), and tests pin each upstream behaviour.
 
 ## Background
 
