@@ -16,6 +16,7 @@
 //                             installed Google Chrome, via Playwright's channel)
 //   HEADED=1                  show the browser window
 //   DEVICE="iPhone 15"        emulate a Playwright device (viewport, touch, UA)
+//   IGNORE_TLS=1              accept a self-signed certificate (local HTTPS test)
 //   FILL_TOKEN=…              type this token into the sign-in form (for a
 //                             production build, which has no dev pre-fill)
 import { chromium, devices, firefox, webkit } from "playwright";
@@ -37,6 +38,7 @@ if (process.env.DEVICE && !device) throw new Error(`Unknown DEVICE ${process.env
 const size = device?.viewport ?? { width: 900, height: 820 };
 const context = await browser.newContext({
   ...(device ?? { viewport: size }),
+  ...(process.env.IGNORE_TLS ? { ignoreHTTPSErrors: true } : {}),
   ...(process.env.VIDEO ? { recordVideo: { dir: process.env.VIDEO, size } } : {}),
 });
 const page = await context.newPage();
@@ -49,7 +51,7 @@ const t0 = Date.now();
 const at = () => `${((Date.now() - t0) / 1000).toFixed(2)}s`;
 page.on("response", async (r) => {
   const u = new URL(r.url());
-  if (u.host !== "api.smartthings.com" && u.pathname !== "/run") return;
+  if (u.host !== "api.smartthings.com" && !u.pathname.endsWith("/run")) return;
   let line = `${r.request().method()} ${u.host}${u.pathname} -> ${r.status()}`;
   // DEBUG=1: timestamps and the switch value each status read returned.
   if (process.env.DEBUG && u.host === "api.smartthings.com" && u.pathname.endsWith("/status")) {

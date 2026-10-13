@@ -15,7 +15,7 @@ from token_exchange import TOKEN_URL, Settings, build_app  # noqa: E402
 SETTINGS = Settings(
     client_id="client-1",
     client_secret="s3cret",
-    redirect_uri="http://localhost:5173/",
+    redirect_uris=("http://localhost:5173/", "https://192.168.1.20:5173/"),
     allowed_origins=("http://localhost:5173",),
 )
 
@@ -95,3 +95,10 @@ def test_cors_allows_only_the_app_origin() -> None:
         "/oauth/token", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"}
     )
     assert "access-control-allow-origin" not in other.headers
+
+
+def test_accepts_each_registered_redirect_uri() -> None:
+    client, seen = make_client()
+    response = client.post("/oauth/token", json={"code": "abc", "redirect_uri": "https://192.168.1.20:5173/"})
+    assert response.status_code == 200
+    assert parse_qs(seen[0].content.decode())["redirect_uri"] == ["https://192.168.1.20:5173/"]

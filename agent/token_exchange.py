@@ -15,8 +15,10 @@ Usage:
     SMARTTHINGS_CLIENT_ID=... SMARTTHINGS_CLIENT_SECRET=... \\
     SMARTTHINGS_REDIRECT_URI=http://localhost:5173/ \\
     uv run python token_exchange.py          # http://127.0.0.1:8001
-    (EXCHANGE_HOST=0.0.0.0 to reach it from a phone on the same network; add
-    the page's origin to ALLOWED_ORIGINS)
+    (SMARTTHINGS_REDIRECT_URI takes several, comma-separated. To reach the
+    service from a phone, either proxy it through the app's own origin (see
+    apps/demo/vite.config.ts) or set EXCHANGE_HOST=0.0.0.0 and add the page's
+    origin to ALLOWED_ORIGINS.)
 """
 
 import os
@@ -42,7 +44,10 @@ TOKEN_FIELDS = ("access_token", "refresh_token", "expires_in", "token_type", "sc
 class Settings:
     client_id: str
     client_secret: str
-    redirect_uri: str
+    # Every redirect URI registered on the OAuth app that this app uses, e.g.
+    # http://localhost:5173/ and an https:// address for a phone (SmartThings
+    # accepts plain http only for localhost).
+    redirect_uris: tuple[str, ...]
     allowed_origins: tuple[str, ...]
 
     @classmethod
@@ -54,7 +59,7 @@ class Settings:
         return cls(
             client_id=os.environ["SMARTTHINGS_CLIENT_ID"],
             client_secret=os.environ["SMARTTHINGS_CLIENT_SECRET"],
-            redirect_uri=os.environ["SMARTTHINGS_REDIRECT_URI"],
+            redirect_uris=tuple(u.strip() for u in os.environ["SMARTTHINGS_REDIRECT_URI"].split(",") if u.strip()),
             allowed_origins=tuple(o.strip() for o in origins.split(",") if o.strip()),
         )
 
@@ -99,7 +104,7 @@ def build_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = N
     async def exchange(request: CodeExchange) -> dict:
         # Only the registered redirect: this service mustn't become a generic
         # code-redeeming proxy for other redirect targets.
-        if request.redirect_uri != settings.redirect_uri:
+        if request.redirect_uri not in settings.redirect_uris:
             raise HTTPException(status_code=400, detail="redirect_uri_mismatch")
         return await forward({"grant_type": "authorization_code", "code": request.code, "redirect_uri": request.redirect_uri})
 
