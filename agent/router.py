@@ -8,11 +8,11 @@ so the model sees one more copy every run.
 with `useAgentContext` (here, the device and scene list) never reaches the
 model.
 
-3. Tool history as text: the router converts earlier tool calls into `<tool_call>...</tool_call>`
-text in the assistant message and tool results into *user* messages. Models
-then copy that text instead of making native tool calls: the model tested did so 3
-out of 3 times on the second request of a conversation, so every turn after
-the first silently did nothing. `to_llama_message` below converts them into
+3. Tool history as text: the router converts earlier tool calls into
+`<tool_call>...</tool_call>` text in the assistant message and tool results
+into *user* messages. Models then copy that text instead of making native tool
+calls: the model tested did so 3 out of 3 times on the second request of a
+conversation, so every turn after the first silently did nothing. `to_llama_message` below converts them into
 native tool-call blocks and `tool` messages instead.
 
 1 and 2 are fixed on the way in: drop every system message the client sent

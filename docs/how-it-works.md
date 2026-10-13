@@ -64,7 +64,7 @@ All in [`policy.ts`](../packages/smartthings-agui/src/policy.ts):
 
 A fourth behaviour is worked around in the browser: the router rebuilds frontend-tool parameters as plain strings, dropping `enum`, types and ranges. Tool descriptions repeat the constraints in words (`describeSchema` in `capabilityTools.ts`), and handlers accept strings.
 
-**Models.** The agent takes any OpenAI-compatible endpoint (`AGENT_API_BASE`, `AGENT_API_KEY`, `AGENT_MODEL`) and defaults to the tested setup; `AGENT_EXTRA_BODY` passes provider options (for some providers, `example_option` keeps its reasoning out of the chat). `--scripted` runs a deterministic stand-in model for the tests.
+**Models.** The agent takes any OpenAI-compatible endpoint (`AGENT_API_BASE`, `AGENT_API_KEY`, `AGENT_MODEL`) whose model supports native tool calls; `AGENT_EXTRA_BODY` passes provider-specific options as JSON. `--scripted` runs a deterministic stand-in model for the tests.
 
 ## Testing against virtual devices
 
@@ -87,4 +87,4 @@ Behaviours to expect:
 
 ## Versions tested
 
-`@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `@copilotkit/a2ui-renderer` 1.79.0 (`@a2ui/web_core` 0.10.4, A2UI v0.9), `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, React 19.3, Node 24.14, Python 3.14.7, Playwright 1.58.2 (headless Chromium), a hosted model. Not yet tested: local models, real hardware, browsers other than headless Chromium, mobile widths.
+`@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `@copilotkit/a2ui-renderer` 1.79.0 (`@a2ui/web_core` 0.10.4, A2UI v0.9), `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, React 19.3, Node 24.14, Python 3.14.7, Playwright 1.58.2 (headless Chromium), and a hosted OpenAI-compatible model. Not yet tested: local models, real hardware, browsers other than headless Chromium, mobile widths.
