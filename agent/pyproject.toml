@@ -1,0 +1,18 @@
+[project]
+name = "smartthings-agui-agent"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "ag-ui-protocol==1.0.0",
+    "fastapi>=0.143.0",
+    "llama-index-llms-openai-like>=0.8.1",
+    "llama-index-protocols-ag-ui==0.5.0",
+    "python-dotenv>=1.2.4",
+    "uvicorn>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+]
