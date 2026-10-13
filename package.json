@@ -1,0 +1,10 @@
+{
+  "name": "smartthings-agui-monorepo",
+  "private": true,
+  "license": "Apache-2.0",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
