@@ -39,6 +39,21 @@ describe("beginSignIn", () => {
   });
 });
 
+describe("beginSignIn outside a secure context", () => {
+  it("works without crypto.randomUUID (plain http on a LAN address)", () => {
+    const original = crypto.randomUUID;
+    Object.defineProperty(crypto, "randomUUID", { value: undefined, configurable: true });
+    try {
+      const storage = memoryStorage();
+      const state = new URL(beginSignIn(CONFIG, storage)).searchParams.get("state");
+      expect(state).toMatch(/^[0-9a-f]{32}$/);
+      expect(storage.getItem("smartthings-agui:oauth-state")).toBe(state);
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", { value: original, configurable: true });
+    }
+  });
+});
+
 describe("OAuthSession", () => {
   it("ignores a normal page load", async () => {
     expect(await OAuthSession.complete(CONFIG, "", memoryStorage())).toBeNull();

@@ -15,6 +15,8 @@ Usage:
     SMARTTHINGS_CLIENT_ID=... SMARTTHINGS_CLIENT_SECRET=... \\
     SMARTTHINGS_REDIRECT_URI=http://localhost:5173/ \\
     uv run python token_exchange.py          # http://127.0.0.1:8001
+    (EXCHANGE_HOST=0.0.0.0 to reach it from a phone on the same network; add
+    the page's origin to ALLOWED_ORIGINS)
 """
 
 import os
@@ -111,4 +113,4 @@ def build_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = N
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(build_app(Settings.from_env()), host="127.0.0.1", port=PORT)
+    uvicorn.run(build_app(Settings.from_env()), host=os.getenv("EXCHANGE_HOST", "127.0.0.1"), port=PORT)

@@ -85,6 +85,18 @@ Behaviours to expect:
 
 `apps/demo/e2e/drive.mjs` drives the demo against them in Chromium, Chrome, Firefox or WebKit, headed or not, optionally emulating a phone (prompts, confirmation clicks, card controls, screenshots or a video).
 
+## Trying it on a phone
+
+The phone and the computer running the agent must be on the same network. Expose both on it, pointing the app at the computer's address (`192.168.1.20` here):
+
+```sh
+cd agent && AGENT_HOST=0.0.0.0 AGENT_ORIGINS=http://192.168.1.20:5173 \
+  AGENT_API_BASE=… AGENT_API_KEY=… AGENT_MODEL=… uv run python serve.py
+cd apps/demo && VITE_AGENT_URL=http://192.168.1.20:8000/run npx vite --host
+```
+
+Then open `http://192.168.1.20:5173` on the phone. Over plain http on a network address the page isn't a *secure context*, so browser APIs such as `crypto.randomUUID` don't exist; the app avoids them (checked in WebKit and Chromium). For OAuth from the phone, the redirect URI registered for the OAuth app and `SMARTTHINGS_REDIRECT_URI` must be that address too, and the token exchange needs `EXCHANGE_HOST=0.0.0.0` and the address in `ALLOWED_ORIGINS`. Anyone on the same network can reach both services while they run, so stop them afterwards.
+
 ## Versions tested
 
 `@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `@copilotkit/a2ui-renderer` 1.79.0 (`@a2ui/web_core` 0.10.4, A2UI v0.9), `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, React 19.3, Node 24.14, Python 3.14.7, and a hosted OpenAI-compatible model. Browsers, through Playwright 1.58.2 on the production build: Google Chrome 155 (headed), Firefox 146, WebKit 26, and iPhone 15 and Pixel 7 emulation. Not yet tested: local models, real hardware, the Safari app itself and real phones.

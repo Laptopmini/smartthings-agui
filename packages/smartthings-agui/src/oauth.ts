@@ -41,7 +41,7 @@ interface Tokens {
 /** Start sign-in: returns the URL to send the browser to. The `state` is kept
  *  in sessionStorage (it must survive the redirect) and checked on return. */
 export function beginSignIn(config: OAuthConfig, storage: Pick<Storage, "setItem"> = sessionStorage): string {
-  const state = crypto.randomUUID();
+  const state = randomState();
   storage.setItem(STATE_KEY, state);
   const url = new URL(config.authorizeUrl ?? AUTHORIZE_URL);
   url.searchParams.set("client_id", config.clientId);
@@ -50,6 +50,14 @@ export function beginSignIn(config: OAuthConfig, storage: Pick<Storage, "setItem
   url.searchParams.set("scope", (config.scopes ?? DEFAULT_SCOPES).join(" "));
   url.searchParams.set("state", state);
   return url.toString();
+}
+
+/** 128 random bits, hex. Not `crypto.randomUUID()`: it only exists in secure
+ *  contexts, and a phone opening the app at http://<LAN address> isn't one
+ *  (checked in WebKit and Chromium, 13 Oct 2026). `getRandomValues` works in both. */
+function randomState(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export class OAuthSession {

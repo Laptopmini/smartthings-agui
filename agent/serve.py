@@ -19,6 +19,8 @@ tested yet):
     AGENT_EXTRA_BODY optional JSON merged into each request body, for
                      provider-specific options (for example one that keeps a
                      reasoning model's thinking out of the chat reply).
+    AGENT_HOST       interface to listen on (default 127.0.0.1)
+    AGENT_ORIGINS    extra allowed browser origins, comma-separated
 """
 
 import argparse
@@ -30,11 +32,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from router import ContextAwareRouter
 
-HOST = "127.0.0.1"
+# Loopback by default. To try the app from a phone on the same network, set
+# AGENT_HOST=0.0.0.0 and add the page's origin to AGENT_ORIGINS.
+HOST = os.getenv("AGENT_HOST", "127.0.0.1")
 PORT = 8000
 
 # Vite's dev server. The browser calls this agent directly (no Node runtime).
 DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+# Extra browser origins allowed to call the agent, comma-separated
+# (e.g. http://192.168.1.20:5173 when testing from a phone).
+EXTRA_ORIGINS = [o.strip() for o in os.getenv("AGENT_ORIGINS", "").split(",") if o.strip()]
 
 SYSTEM_PROMPT = """\
 You control the user's SmartThings home through tools that run in their browser.
@@ -83,7 +90,7 @@ def build_app(llm) -> FastAPI:
     app = FastAPI(title="smartthings-agui reference agent")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=DEV_ORIGINS,
+        allow_origins=DEV_ORIGINS + EXTRA_ORIGINS,
         allow_methods=["*"],
         # Every header, including `Authorization`: CopilotKit PR #7506's example
         # allowed a fixed list and its preflight returned 400 for that header.
