@@ -6,6 +6,8 @@
 // Environment:
 //   ENABLE=lock,doorControl   tick these in Safety settings first
 //   CLICK=Unlock              press this button whenever a confirm card shows
+//   TILE="Label:Button"       after each prompt, press that button on the device
+//                             tile with exactly that label (the first such tile)
 //   SHOTS=dir                 save a screenshot after each prompt
 //   VIDEO=dir                 record a video of the session
 import { chromium } from "playwright";
@@ -70,6 +72,15 @@ for (const [i, prompt] of prompts.entries()) {
   await page.waitForTimeout(1000);
   await settle(started);
   log.push(`(${((Date.now() - started) / 1000).toFixed(1)} s)`);
+  if (process.env.TILE) {
+    const [label, name] = process.env.TILE.split(":");
+    const button = page.locator(`[data-testid="device-tile"][data-label="${label}"]`).first().getByRole("button", { name });
+    if (await button.count()) {
+      log.push(`(tile "${label}": clicking "${name}")`);
+      await button.click();
+      await settle(Date.now());
+    }
+  }
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/turn-${i + 1}.png` });
 }
 
