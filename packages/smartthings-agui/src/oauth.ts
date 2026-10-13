@@ -7,7 +7,12 @@
  *  again, which is the price of not leaving a 29-day refresh token in storage.
  */
 
-export const AUTHORIZE_URL = "https://api.smartthings.com/oauth/authorize";
+/** Not the documented `https://api.smartthings.com/oauth/authorize`: that URL
+ *  answered 403 Forbidden to every request on 13 Oct 2026 (our client id, a
+ *  made-up one, browser user agent or not). This host, which the open-source
+ *  SmartThings CLI uses for its own sign-in, redirects to the SmartThings
+ *  login page as expected. Overridable with `OAuthConfig.authorizeUrl`. */
+export const AUTHORIZE_URL = "https://oauthin-regional.api.smartthings.com/oauth/authorize";
 
 /** Enough for the tools: read and control devices, read and run scenes,
  *  read locations (for room names). */
@@ -24,6 +29,7 @@ export interface OAuthConfig {
   /** The token-exchange service, e.g. http://127.0.0.1:8001 */
   exchangeUrl: string;
   scopes?: string[];
+  authorizeUrl?: string;
 }
 
 interface Tokens {
@@ -37,7 +43,7 @@ interface Tokens {
 export function beginSignIn(config: OAuthConfig, storage: Pick<Storage, "setItem"> = sessionStorage): string {
   const state = crypto.randomUUID();
   storage.setItem(STATE_KEY, state);
-  const url = new URL(AUTHORIZE_URL);
+  const url = new URL(config.authorizeUrl ?? AUTHORIZE_URL);
   url.searchParams.set("client_id", config.clientId);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("redirect_uri", config.redirectUri);
@@ -81,15 +87,19 @@ export class OAuthSession {
   /** A current access token, refreshed first if it's about to expire. Pass
    *  `() => session.accessToken()` to SmartThingsClient. */
   async accessToken(): Promise<string> {
-    if (Date.now() > this.expiresAt - REFRESH_MARGIN_MS && this.tokens.refresh_token) {
-      const next = await post<Tokens>(this.fetchImpl, `${this.config.exchangeUrl}/oauth/refresh`, {
-        refresh_token: this.tokens.refresh_token,
-      });
-      // SmartThings may or may not rotate the refresh token; keep the old one if not.
-      this.tokens = { ...next, refresh_token: next.refresh_token ?? this.tokens.refresh_token };
-      this.expiresAt = expiry(this.tokens);
-    }
+    if (Date.now() > this.expiresAt - REFRESH_MARGIN_MS && this.tokens.refresh_token) await this.refresh();
     return this.tokens.access_token;
+  }
+
+  /** Swap the refresh token for a new access token now. */
+  async refresh(): Promise<void> {
+    if (!this.tokens.refresh_token) throw new Error("No refresh token; sign in again.");
+    const next = await post<Tokens>(this.fetchImpl, `${this.config.exchangeUrl}/oauth/refresh`, {
+      refresh_token: this.tokens.refresh_token,
+    });
+    // SmartThings may or may not rotate the refresh token; keep the old one if not.
+    this.tokens = { ...next, refresh_token: next.refresh_token ?? this.tokens.refresh_token };
+    this.expiresAt = expiry(this.tokens);
   }
 }
 

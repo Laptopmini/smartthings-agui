@@ -4,8 +4,7 @@ Kept apart from the agent on purpose (its own app, its own port): the agent
 never sees SmartThings credentials, and this service never sees a conversation.
 
 Why it exists: the public docs only describe a confidential client. The token
-endpoint (`POST https://api.smartthings.com/oauth/token`) wants the client id
-and *secret* as HTTP Basic auth, and a secret can't live in a browser bundle.
+endpoint wants the client id and *secret* as HTTP Basic auth, and a secret can't live in a browser bundle.
 PKCE without a secret exists on the platform but isn't documented for apps we
 create. So the browser does the authorize
 redirect itself, and posts the returned `code` here; this adds the secret,
@@ -26,7 +25,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-TOKEN_URL = "https://api.smartthings.com/oauth/token"
+# The host that issued the code (see AUTHORIZE_URL in the package's oauth.ts:
+# the documented api.smartthings.com/oauth/authorize answered 403 on 13 Oct
+# 2026, so sign-in goes through this host, as the SmartThings CLI's does).
+# Server-to-server, so this host's lack of CORS headers doesn't matter.
+TOKEN_URL = os.getenv("SMARTTHINGS_TOKEN_URL", "https://oauthin-regional.api.smartthings.com/oauth/token")
 PORT = 8001
 
 # What the browser may receive. Anything else SmartThings returns is dropped.

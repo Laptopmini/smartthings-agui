@@ -27,10 +27,10 @@ function exchange(responses: { access_token: string; refresh_token?: string; exp
 }
 
 describe("beginSignIn", () => {
-  it("builds the documented authorize URL with a state it remembers", () => {
+  it("builds the authorize URL with a state it remembers", () => {
     const storage = memoryStorage();
     const url = new URL(beginSignIn(CONFIG, storage));
-    expect(url.origin + url.pathname).toBe("https://api.smartthings.com/oauth/authorize");
+    expect(url.origin + url.pathname).toBe("https://oauthin-regional.api.smartthings.com/oauth/authorize");
     expect(url.searchParams.get("client_id")).toBe("client-1");
     expect(url.searchParams.get("response_type")).toBe("code");
     expect(url.searchParams.get("redirect_uri")).toBe("http://localhost:5173/");

@@ -119,6 +119,20 @@ export default function App() {
       <header className="st-header">
         <strong>SmartThings AG-UI</strong>
         {client && <Settings value={confirm} onChange={updateConfirm} />}
+        {session && import.meta.env.DEV && (
+          // Dev only: exercise the refresh path without waiting ~24 h.
+          <button
+            className="st-link"
+            onClick={() =>
+              session.refresh().then(
+                () => setAuthError("Token refreshed."),
+                (e: Error) => setAuthError(e.message),
+              )
+            }
+          >
+            Refresh token
+          </button>
+        )}
         {client && (
           <button
             className="st-link"
@@ -171,6 +185,11 @@ export default function App() {
         </form>
       )}
 
+      {client && authError && (
+        <small className="st-footer" role="status">
+          {authError}
+        </small>
+      )}
       <footer className="st-footer">Not affiliated with or endorsed by Samsung.</footer>
     </div>
   );
