@@ -63,21 +63,26 @@ type RawDevice = {
 
 type Page<T> = { items: T[]; _links?: { next?: { href?: string } | null } };
 
+/** A personal access token, or a function returning a current access token
+ *  (an OAuth session refreshes behind it). */
+export type TokenSource = string | (() => Promise<string>);
+
 export class SmartThingsClient {
   private devices?: { at: number; value: Promise<DeviceSummary[]> };
   private readonly capabilities = new Map<string, Promise<CapabilityDefinition>>();
 
   constructor(
-    private readonly token: string,
+    private readonly token: TokenSource,
     private readonly fetchImpl: typeof fetch = (...args) => fetch(...args),
   ) {}
 
   private async request<T>(pathOrUrl: string, init?: RequestInit): Promise<T> {
     const url = pathOrUrl.startsWith("https://") ? pathOrUrl : `${SMARTTHINGS_API}${pathOrUrl}`;
+    const token = typeof this.token === "string" ? this.token : await this.token();
     const response = await this.fetchImpl(url, {
       ...init,
       headers: {
-        Authorization: `Bearer ${this.token}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         ...init?.headers,
       },

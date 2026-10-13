@@ -1502,6 +1502,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "ag-ui-protocol" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "llama-index-llms-openai-like" },
     { name = "llama-index-protocols-ag-ui" },
     { name = "python-dotenv" },
@@ -1518,6 +1519,7 @@ dev = [
 requires-dist = [
     { name = "ag-ui-protocol", specifier = "==1.0.0" },
     { name = "fastapi", specifier = ">=0.143.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "llama-index-llms-openai-like", specifier = ">=0.8.1" },
     { name = "llama-index-protocols-ag-ui", specifier = "==0.5.0" },
     { name = "python-dotenv", specifier = ">=1.2.4" },

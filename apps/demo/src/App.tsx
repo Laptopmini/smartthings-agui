@@ -1,7 +1,15 @@
 import { HttpAgent } from "@ag-ui/client";
 import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
-import { useMemo, useState } from "react";
-import { CONFIRM_COMMANDS, SmartThingsClient, useSmartThingsTools, type ConfirmCapability } from "smartthings-agui";
+import { useEffect, useMemo, useState } from "react";
+import {
+  CONFIRM_COMMANDS,
+  OAuthSession,
+  SmartThingsClient,
+  beginSignIn,
+  useSmartThingsTools,
+  type ConfirmCapability,
+  type OAuthConfig,
+} from "smartthings-agui";
 import "./app.css";
 
 /** Direct connect: the browser posts AG-UI runs straight to the Python agent
@@ -10,6 +18,17 @@ import "./app.css";
 const AGENT_URL = import.meta.env.VITE_AGENT_URL ?? "http://127.0.0.1:8000/run";
 
 const agent = new HttpAgent({ url: AGENT_URL });
+
+/** OAuth is offered when an OAuth-In app is configured (see the README);
+ *  otherwise only the personal-token form shows. */
+const OAUTH: OAuthConfig | null =
+  import.meta.env.VITE_SMARTTHINGS_CLIENT_ID && import.meta.env.VITE_TOKEN_EXCHANGE_URL
+    ? {
+        clientId: import.meta.env.VITE_SMARTTHINGS_CLIENT_ID,
+        exchangeUrl: import.meta.env.VITE_TOKEN_EXCHANGE_URL,
+        redirectUri: import.meta.env.VITE_OAUTH_REDIRECT_URI ?? `${location.origin}/`,
+      }
+    : null;
 
 const CAPABILITY_LABELS: Record<ConfirmCapability, string> = {
   lock: "Locks",
@@ -66,8 +85,25 @@ export default function App() {
   // 24-hour credential for the whole account.
   const [token, setToken] = useState(__DEV_SMARTTHINGS_TOKEN__);
   const [signedIn, setSignedIn] = useState(false);
+  const [session, setSession] = useState<OAuthSession | null>(null);
+  const [authError, setAuthError] = useState<string>();
   const [confirm, setConfirm] = useState<ConfirmCapability[]>(loadOptIns);
-  const client = useMemo(() => (signedIn ? new SmartThingsClient(token) : null), [signedIn, token]);
+  const client = useMemo(() => {
+    if (session) return new SmartThingsClient(() => session.accessToken());
+    return signedIn ? new SmartThingsClient(token) : null;
+  }, [session, signedIn, token]);
+
+  // Coming back from SmartThings' authorize page: finish the exchange, then
+  // drop ?code=…&state=… from the address bar.
+  useEffect(() => {
+    if (!OAUTH) return;
+    OAuthSession.complete(OAUTH, location.search)
+      .then((s) => s && setSession(s))
+      .catch((e: Error) => setAuthError(e.message))
+      .finally(() => {
+        if (location.search) history.replaceState(null, "", location.pathname);
+      });
+  }, []);
 
   const updateConfirm = (next: ConfirmCapability[]) => {
     setConfirm(next);
@@ -84,7 +120,13 @@ export default function App() {
         <strong>SmartThings AG-UI</strong>
         {client && <Settings value={confirm} onChange={updateConfirm} />}
         {client && (
-          <button className="st-link" onClick={() => setSignedIn(false)}>
+          <button
+            className="st-link"
+            onClick={() => {
+              setSignedIn(false);
+              setSession(null);
+            }}
+          >
             Sign out
           </button>
         )}
@@ -110,6 +152,15 @@ export default function App() {
             if (token) setSignedIn(true);
           }}
         >
+          {OAUTH && (
+            <>
+              <button type="button" onClick={() => location.assign(beginSignIn(OAUTH))}>
+                Sign in with SmartThings
+              </button>
+              <small>or, for development, a personal access token:</small>
+            </>
+          )}
+          {authError && <small role="alert">{authError}</small>}
           <label htmlFor="token">SmartThings personal access token</label>
           <input id="token" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} />
           <button type="submit">Connect</button>

@@ -5,3 +5,4 @@ export * from "./status";
 export * from "./tools";
 export { ConfirmCard, DeviceCard, DeviceListCard, ErrorCard } from "./cards";
 export { describeHome, useSmartThingsTools, type SmartThingsToolsOptions } from "./useSmartThingsTools";
+export * from "./oauth";
