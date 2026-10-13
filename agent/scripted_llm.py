@@ -6,7 +6,8 @@ the run finishes) can be checked without loading anything in LM Studio:
 
 1. user asks "turn on <label>"   -> call list_devices {}
 2. list_devices result (a list)  -> call set_switch {deviceId, state}
-3. set_switch result             -> reply with text, no tool call
+   ("lock"/"unlock <label>" -> confirm_command; "dim <label> to N" -> set_level)
+3. that tool's result            -> reply with text, no tool call
 
 It never sees SmartThings: it only reads the tool results the browser sent.
 """
@@ -43,7 +44,12 @@ def _is_tool_result(message: ChatMessage) -> bool:
     return message.role == MessageRole.TOOL or "tool_call_id" in message.additional_kwargs
 
 
+# What the model was sent on the latest call, for tests to inspect.
+LAST_MESSAGES: list[ChatMessage] = []
+
+
 def respond(messages: list[ChatMessage], **_: object) -> ChatMessage:
+    LAST_MESSAGES[:] = messages
     user = next(m for m in reversed(messages) if m.role == MessageRole.USER and not _is_tool_result(m))
     request = _text(user).lower()
     last = messages[-1]
@@ -61,8 +67,19 @@ def respond(messages: list[ChatMessage], **_: object) -> ChatMessage:
         state = "off" if re.search(r"\boff\b", request) else "on"
         # Longest label first, so "Tall Lamp Left" wins over "Tall Lamp".
         for device in sorted(devices, key=lambda d: -len(d.get("label", ""))):
-            if device.get("label", "").lower() in request:
-                return _call("set_switch", {"deviceId": device["deviceId"], "state": state})
+            if device.get("label", "").lower() not in request:
+                continue
+            verb = re.search(r"\b(unlock|lock)\b", request)
+            if verb:
+                return _call(
+                    "confirm_command",
+                    {"deviceId": device["deviceId"], "capability": "lock", "command": verb.group(1)},
+                )
+            level = re.search(r"\bdim\b.*?\bto (\d+)", request)
+            if level:
+                # A string, as the router's flattened schema makes real models send.
+                return _call("set_level", {"deviceId": device["deviceId"], "level": level.group(1)})
+            return _call("set_switch", {"deviceId": device["deviceId"], "state": state})
         return ChatMessage(role=MessageRole.ASSISTANT, content="I couldn't find that device.")
 
     return ChatMessage(role=MessageRole.ASSISTANT, content=f"Done: {result}")

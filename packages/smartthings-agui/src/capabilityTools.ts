@@ -1,18 +1,6 @@
 import type { CapabilityDefinition, JsonSchema } from "./client";
+import { CONFIRM_CAPABILITIES } from "./policy";
 
-/** Capabilities whose commands always need a person's confirmation.
- *
- *  Hard-coded on purpose: the API's per-command `sensitive` flag is not a
- *  safety signal. `GET /capabilities/lock/1` returns `"sensitive": false` for
- *  `unlock` (checked 13 Oct 2026); the flag marks commands whose *arguments*
- *  carry secrets, not commands with physical consequences.
- */
-export const CONFIRM_CAPABILITIES: ReadonlySet<string> = new Set([
-  "lock",
-  "garageDoorControl",
-  "securitySystem",
-  "valve",
-]);
 
 export interface GeneratedTool {
   name: string;
@@ -118,4 +106,58 @@ export function jsonSchemaParameters<T extends Record<string, unknown>>(schema: 
       types: undefined as unknown as { input: T; output: T },
     },
   };
+}
+
+/** Check command arguments against the capability definition's JSON Schemas.
+ *
+ *  Covers what models get wrong in practice: a missing or unknown command,
+ *  argument count, primitive type, enum, and numeric range. Strings that hold
+ *  numbers or JSON are coerced first, because the LlamaIndex router turns
+ *  every frontend-tool parameter into a string.
+ *  Returns the coerced arguments, or throws with a message meant for the model.
+ */
+export function validateArguments(definition: CapabilityDefinition, command: string, args: unknown[]): unknown[] {
+  const spec = definition.commands?.[command];
+  if (!spec) {
+    const known = Object.keys(definition.commands ?? {});
+    throw new Error(
+      `${definition.id} has no command "${command}". Commands: ${known.join(", ") || "(none; it's read-only)"}.`,
+    );
+  }
+  const specs = spec.arguments ?? [];
+  const required = specs.filter((a) => !a.optional).length;
+  if (args.length < required || args.length > specs.length) {
+    const names = specs.map((a) => (a.optional ? `${a.name}?` : a.name)).join(", ");
+    throw new Error(`${definition.id}.${command} takes ${specs.length ? `arguments (${names})` : "no arguments"}.`);
+  }
+  return args.map((value, i) => checkValue(specs[i].name, specs[i].schema, value));
+}
+
+function checkValue(name: string, schema: JsonSchema, raw: unknown): unknown {
+  let value = raw;
+  const type = schema.type;
+  if (typeof value === "string" && (type === "integer" || type === "number") && value.trim() !== "") {
+    value = Number(value);
+  } else if (typeof value === "string" && (type === "object" || type === "array")) {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      // leave as is; the type check below reports it
+    }
+  }
+  const fail = () => {
+    throw new Error(`${name} must be ${describeSchema(schema) || String(type)}; got ${JSON.stringify(raw)}.`);
+  };
+  if (Array.isArray(schema.enum) && !schema.enum.includes(value)) fail();
+  if (type === "integer" && !Number.isInteger(value)) fail();
+  if (type === "number" && (typeof value !== "number" || Number.isNaN(value))) fail();
+  if (type === "string" && typeof value !== "string") fail();
+  if (type === "boolean" && typeof value !== "boolean") fail();
+  if (type === "object" && (typeof value !== "object" || value === null || Array.isArray(value))) fail();
+  if (type === "array" && !Array.isArray(value)) fail();
+  if (typeof value === "number") {
+    if (typeof schema.minimum === "number" && value < schema.minimum) fail();
+    if (typeof schema.maximum === "number" && value > schema.maximum) fail();
+  }
+  return value;
 }

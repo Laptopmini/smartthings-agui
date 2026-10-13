@@ -21,7 +21,8 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+
+from router import ContextAwareRouter
 
 HOST = "127.0.0.1"
 PORT = 8000
@@ -32,10 +33,16 @@ DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 DEFAULT_MODEL = "google/gemma-4-26b-a4b"
 
 SYSTEM_PROMPT = """\
-You control a SmartThings home through tools that run in the user's browser.
-Call list_devices to find a device's id before acting on it; never invent ids.
-To turn a switch on or off, call set_switch with that id.
-After a tool returns, answer in one short sentence."""
+You control the user's SmartThings home through tools that run in their browser.
+- Use device and scene ids from the home context below or from list_devices; never invent ids.
+- Prefer the typed tools (set_switch, set_level, set_color, set_thermostat); use
+  execute_command only for other capabilities.
+- Locks, doors, garage doors, valves and security systems need confirm_command,
+  and the user confirms in the app. If confirm_command isn't available, say that
+  those controls are turned off in the app's settings; don't try other tools.
+- Scenes run through run_scene, which also asks the user to confirm.
+- If a tool returns an error, explain it briefly or fix the arguments and retry once.
+- After acting, answer in one short sentence based on the state the tool returned."""
 
 
 def build_llm(scripted: bool):
@@ -69,7 +76,7 @@ def build_app(llm) -> FastAPI:
         allow_headers=["*"],
     )
     # No backend tools: everything SmartThings is a frontend tool.
-    app.include_router(get_ag_ui_workflow_router(llm=llm, system_prompt=SYSTEM_PROMPT))
+    app.include_router(ContextAwareRouter(llm, SYSTEM_PROMPT).router)
 
     @app.get("/health")
     def health() -> dict:
