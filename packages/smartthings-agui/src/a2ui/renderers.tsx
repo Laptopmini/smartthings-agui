@@ -96,11 +96,24 @@ export const renderers: CatalogRenderers<typeof definitions> = {
     const color = str(p.color);
     return (
       <div style={tile} data-testid="device-tile" data-label={label}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, minWidth: 0 }} title={label}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontWeight: 600, minWidth: 0 }} title={label}>
           {color && (
-            <span aria-hidden style={{ width: 10, height: 10, borderRadius: 5, background: color, flex: "none" }} />
+            <span aria-hidden style={{ width: 10, height: 10, borderRadius: 5, background: color, flex: "none", marginTop: 5 }} />
           )}
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{label}</span>
+          {/* Up to two lines, then an ellipsis: on a phone a tile is ~170 px
+              wide and one line cut most names after ~14 characters. */}
+          <span
+            style={{
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp: 2,
+              overflow: "hidden",
+              overflowWrap: "anywhere",
+              minWidth: 0,
+            }}
+          >
+            {label}
+          </span>
         </div>
         {str(p.room) && <div style={muted}>{str(p.room)}</div>}
         {str(p.stateText) && <div style={{ fontSize: 13 }} data-testid="tile-state">{str(p.stateText)}</div>}

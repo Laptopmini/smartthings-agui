@@ -83,8 +83,8 @@ Behaviours to expect:
 - The colour bulb accepts `setColor` (HTTP 200) but ignores it, in both the `{hue, saturation}` and `{hex}` forms; `setHue` and `setSaturation` work, so `set_color` sends those (they're standard `colorControl` commands).
 - `setLevel` doesn't switch a virtual dimmer on.
 
-`apps/demo/e2e/drive.mjs` drives the demo in headless Chromium against them (prompts, confirmation clicks, card controls, screenshots or a video).
+`apps/demo/e2e/drive.mjs` drives the demo against them in Chromium, Chrome, Firefox or WebKit, headed or not, optionally emulating a phone (prompts, confirmation clicks, card controls, screenshots or a video).
 
 ## Versions tested
 
-`@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `@copilotkit/a2ui-renderer` 1.79.0 (`@a2ui/web_core` 0.10.4, A2UI v0.9), `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, React 19.3, Node 24.14, Python 3.14.7, Playwright 1.58.2 (headless Chromium), and a hosted OpenAI-compatible model. Not yet tested: local models, real hardware, browsers other than headless Chromium, mobile widths.
+`@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `@copilotkit/a2ui-renderer` 1.79.0 (`@a2ui/web_core` 0.10.4, A2UI v0.9), `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, React 19.3, Node 24.14, Python 3.14.7, and a hosted OpenAI-compatible model. Browsers, through Playwright 1.58.2 on the production build: Google Chrome 155 (headed), Firefox 146, WebKit 26, and iPhone 15 and Pixel 7 emulation. Not yet tested: local models, real hardware, the Safari app itself and real phones.

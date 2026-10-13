@@ -60,6 +60,9 @@ function Settings({ value, onChange }: { value: ConfirmCapability[]; onChange: (
   return (
     <details className="st-settings">
       <summary>Safety settings</summary>
+      {/* Floats below the header, so opening it never reflows the header
+          (on a phone it squeezed the title and "Sign out" onto two lines). */}
+      <div className="st-settings-panel">
       <p>
         Off by default. When on, the assistant can ask to control these, and nothing happens until you press the
         confirmation button.
@@ -76,6 +79,7 @@ function Settings({ value, onChange }: { value: ConfirmCapability[]; onChange: (
           {CAPABILITY_LABELS[capability]}
         </label>
       ))}
+      </div>
     </details>
   );
 }

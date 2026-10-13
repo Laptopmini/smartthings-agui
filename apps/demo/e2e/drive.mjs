@@ -10,29 +10,56 @@
 //                             tile with exactly that label (the first such tile)
 //   SHOTS=dir                 save a screenshot after each prompt
 //   VIDEO=dir                 record a video of the session
-import { chromium } from "playwright";
+//   BROWSER=chromium|firefox|webkit|chrome   default chromium ("chrome" is the
+//                             installed Google Chrome, via Playwright's channel)
+//   HEADED=1                  show the browser window
+//   DEVICE="iPhone 15"        emulate a Playwright device (viewport, touch, UA)
+//   FILL_TOKEN=…              type this token into the sign-in form (for a
+//                             production build, which has no dev pre-fill)
+import { chromium, devices, firefox, webkit } from "playwright";
 
 const prompts = process.argv.slice(2);
 const DEMO = process.env.DEMO_URL ?? "http://localhost:5173/";
 const enable = (process.env.ENABLE ?? "").split(",").filter(Boolean);
 const LABELS = { lock: "Locks", garageDoorControl: "Garage doors", doorControl: "Doors", valve: "Valves", securitySystem: "Security system" };
 
-const browser = await chromium.launch();
+const kind = process.env.BROWSER ?? "chromium";
+const engine = { chromium, chrome: chromium, firefox, webkit }[kind];
+if (!engine) throw new Error(`Unknown BROWSER ${kind}`);
+const browser = await engine.launch({
+  headless: !process.env.HEADED,
+  ...(kind === "chrome" ? { channel: "chrome" } : {}),
+});
+const device = process.env.DEVICE ? devices[process.env.DEVICE] : undefined;
+if (process.env.DEVICE && !device) throw new Error(`Unknown DEVICE ${process.env.DEVICE}`);
+const size = device?.viewport ?? { width: 900, height: 820 };
 const context = await browser.newContext({
-  viewport: { width: 900, height: 820 },
-  ...(process.env.VIDEO ? { recordVideo: { dir: process.env.VIDEO, size: { width: 900, height: 820 } } } : {}),
+  ...(device ?? { viewport: size }),
+  ...(process.env.VIDEO ? { recordVideo: { dir: process.env.VIDEO, size } } : {}),
 });
 const page = await context.newPage();
 const log = [];
 const NOISE = /Lit is in dev|React DevTools|Enterprise Intelligence|no renderer is registered/;
-page.on("console", (m) => m.type() !== "debug" && !NOISE.test(m.text()) && log.push(`console.${m.type()}: ${m.text().slice(0, 300)}`));
+const IGNORED_TYPES = new Set(["debug", "timeStamp"]); // Firefox logs React dev timing as console.timeStamp
+page.on("console", (m) => !IGNORED_TYPES.has(m.type()) && !NOISE.test(m.text()) && log.push(`console.${m.type()}: ${m.text().slice(0, 300)}`));
 page.on("requestfailed", (r) => log.push(`FAILED ${r.method()} ${r.url()} ${r.failure()?.errorText}`));
-page.on("response", (r) => {
+const t0 = Date.now();
+const at = () => `${((Date.now() - t0) / 1000).toFixed(2)}s`;
+page.on("response", async (r) => {
   const u = new URL(r.url());
-  if (u.host === "api.smartthings.com" || u.pathname === "/run") log.push(`${r.request().method()} ${u.host}${u.pathname} -> ${r.status()}`);
+  if (u.host !== "api.smartthings.com" && u.pathname !== "/run") return;
+  let line = `${r.request().method()} ${u.host}${u.pathname} -> ${r.status()}`;
+  // DEBUG=1: timestamps and the switch value each status read returned.
+  if (process.env.DEBUG && u.host === "api.smartthings.com" && u.pathname.endsWith("/status")) {
+    const body = await r.text().catch(() => "");
+    line += ` @${at()} switch=${/"switch":\{"switch":\{"value":"(\w+)"/.exec(body)?.[1] ?? "-"}`;
+  } else if (process.env.DEBUG) line += ` @${at()}`;
+  log.push(line);
 });
 
 await page.goto(DEMO);
+// A production build has no dev pre-fill: type the token, as a person would.
+if (process.env.FILL_TOKEN) await page.getByLabel("SmartThings personal access token").fill(process.env.FILL_TOKEN);
 await page.getByRole("button", { name: "Connect" }).click();
 if (enable.length) {
   await page.getByText("Safety settings").click();
@@ -65,6 +92,22 @@ async function settle(started) {
   }
 }
 
+// DEBUG=1 and TILE set: log every change to that tile's text, with timestamps.
+if (process.env.DEBUG && process.env.TILE) {
+  const label = process.env.TILE.split(":")[0];
+  let last = "";
+  const timer = setInterval(async () => {
+    const tiles = page.locator(`[data-testid="device-tile"][data-label="${label}"]`);
+    const texts = await tiles.allInnerTexts().catch(() => []);
+    const now = texts.map((t) => t.replace(/\s+/g, " ")).join(" || ");
+    if (now !== last) {
+      last = now;
+      log.push(`(watch @${at()}: ${texts.length} tile(s): ${now})`);
+    }
+  }, 200);
+  page.on("close", () => clearInterval(timer));
+}
+
 for (const [i, prompt] of prompts.entries()) {
   const started = Date.now();
   log.push(`=== ${prompt}`);
@@ -79,6 +122,13 @@ for (const [i, prompt] of prompts.entries()) {
     if (await button.count()) {
       log.push(`(tile "${label}": clicking "${name}")`);
       await button.click();
+      if (process.env.DEBUG) {
+        for (const ms of [300, 1000, 3000]) {
+          await page.waitForTimeout(ms);
+          const tile = page.locator(`[data-testid="device-tile"][data-label="${label}"]`).first();
+          log.push(`(tile after click @${at()}: ${(await tile.innerText()).replace(/\s+/g, " ")})`);
+        }
+      }
       await settle(Date.now());
     }
   }
@@ -86,6 +136,7 @@ for (const [i, prompt] of prompts.entries()) {
 }
 
 const transcript = await page.locator(".st-chat").innerText();
+log.unshift(`browser: ${kind} ${browser.version()}${process.env.HEADED ? " (headed)" : ""}${device ? `, device ${process.env.DEVICE} ${size.width}x${size.height}` : ""}`);
 console.log(log.join("\n"));
 console.log(`--- chat text ---\n${transcript.slice(-3000)}`);
 await context.close(); // flushes the video

@@ -7,16 +7,23 @@ type Listener = (device: DeviceResult) => void;
  *  showing that lamp updates. Fed only by reads that already happen; it never
  *  polls (SmartThings rate-limits per token). */
 export class LiveDevices {
-  private readonly latest = new Map<string, DeviceResult>();
+  private readonly states = new Map<string, DeviceResult>();
   private readonly listeners = new Set<Listener>();
 
   set(device: DeviceResult): void {
-    this.latest.set(device.deviceId, device);
+    this.states.set(device.deviceId, device);
     for (const listener of this.listeners) listener(device);
   }
 
   get(deviceId: string): DeviceResult | undefined {
-    return this.latest.get(deviceId);
+    return this.states.get(deviceId);
+  }
+
+  /** Each device's latest known state, falling back to the one given. A card
+   *  rebuilt from chat history starts from this rather than from the tool's
+   *  original result, so it never shows a stale state first. */
+  current(devices: DeviceResult[]): DeviceResult[] {
+    return devices.map((d) => this.states.get(d.deviceId) ?? d);
   }
 
   subscribe(listener: Listener): () => void {

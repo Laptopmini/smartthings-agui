@@ -17,6 +17,8 @@ interface FakeDevice {
   roomId: string;
   capabilities: string[];
   status: Status;
+  /** Capability versions other than 1. */
+  versions?: Record<string, number>;
 }
 
 export const LOCATION = "loc-1";
@@ -68,6 +70,14 @@ export function makeDevices(): FakeDevice[] {
       },
     },
     {
+      deviceId: "fan",
+      label: "Ceiling Fan",
+      roomId: "r-living",
+      capabilities: ["fanSpeed"],
+      versions: { fanSpeed: 2 },
+      status: { fanSpeed: { fanSpeed: { value: 0 } } },
+    },
+    {
       deviceId: "shade",
       label: "Office Blind",
       roomId: "r-office",
@@ -84,6 +94,12 @@ const DEFINITIONS: Record<string, unknown> = {
   lock,
   thermostatHeatingSetpoint,
   windowShade,
+  // A made-up version 2 with an extra command, to check versions are honoured.
+  "fanSpeed/2": {
+    id: "fanSpeed",
+    version: 2,
+    commands: { setFanSpeed: { name: "setFanSpeed", arguments: [{ name: "speed", schema: { type: "integer", minimum: 0, maximum: 4 } }] } },
+  },
 };
 
 /** command → [capability attribute, value from args] */
@@ -106,6 +122,7 @@ const EFFECTS: Record<string, (args: unknown[]) => [string, string, unknown][]> 
   "thermostatMode.setThermostatMode": (a) => [["thermostatMode", "thermostatMode", a[0]]],
   "thermostatHeatingSetpoint.setHeatingSetpoint": (a) => [["thermostatHeatingSetpoint", "heatingSetpoint", a[0]]],
   "windowShade.open": () => [["windowShade", "windowShade", "open"]],
+  "fanSpeed.setFanSpeed": (a) => [["fanSpeed", "fanSpeed", a[0]]],
 };
 
 export function fakeSmartThings(devices = makeDevices()) {
@@ -122,16 +139,17 @@ export function fakeSmartThings(devices = makeDevices()) {
     calls.push({ method, path: path + url.search, body, auth });
 
     if (path === "/devices") {
-      // Two pages, with an absolute `next` link that omits /v1, as the real API does.
-      const page = url.searchParams.get("page") === "1" ? 1 : 0;
+      // Pages of three, with an absolute `next` link that omits /v1, as the real API does.
+      const page = Number(url.searchParams.get("page") ?? 0);
       const items = devices.slice(page * 3, page * 3 + 3).map((d) => ({
         deviceId: d.deviceId,
         label: d.label,
         roomId: d.roomId,
         locationId: LOCATION,
-        components: [{ id: "main", capabilities: d.capabilities.map((id) => ({ id, version: 1 })) }],
+        components: [{ id: "main", capabilities: d.capabilities.map((id) => ({ id, version: d.versions?.[id] ?? 1 })) }],
       }));
-      const next = page === 0 ? { href: "https://api.smartthings.com/devices?page=1&isNext=true" } : null;
+      const next =
+        (page + 1) * 3 < devices.length ? { href: `https://api.smartthings.com/devices?page=${page + 1}&isNext=true` } : null;
       return Response.json({ items, _links: { next } });
     }
     if (path === `/locations/${LOCATION}/rooms`) {
@@ -151,9 +169,9 @@ export function fakeSmartThings(devices = makeDevices()) {
       scenesRun.push(scene[1]);
       return Response.json({ status: "success" });
     }
-    const capability = path.match(/^\/capabilities\/([^/]+)\/1$/);
+    const capability = path.match(/^\/capabilities\/([^/]+)\/(\d+)$/);
     if (capability) {
-      const definition = DEFINITIONS[capability[1]];
+      const definition = DEFINITIONS[`${capability[1]}/${capability[2]}`] ?? (capability[2] === "1" ? DEFINITIONS[capability[1]] : undefined);
       return definition ? Response.json(definition) : new Response("not found", { status: 404 });
     }
     const status = path.match(/^\/devices\/([^/]+)\/components\/main\/status$/);

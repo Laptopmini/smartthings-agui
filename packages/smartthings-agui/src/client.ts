@@ -19,8 +19,11 @@ export interface DeviceSummary {
   label: string;
   room?: string;
   locationId?: string;
-  /** Capability ids on the `main` component. */
+  /** Capability ids on the `main` component. (Tools address `main` only;
+   *  a few devices, such as some ovens and hubs, have more components.) */
   capabilities: string[];
+  /** Capability id → version on `main`, for fetching the right definition. */
+  versions?: Record<string, number>;
 }
 
 export interface SceneSummary {
@@ -133,6 +136,9 @@ export class SmartThingsClient {
       room: d.roomId ? rooms.get(d.roomId) : undefined,
       locationId: d.locationId,
       capabilities: (d.components.find((c) => c.id === "main")?.capabilities ?? []).map((c) => c.id),
+      versions: Object.fromEntries(
+        (d.components.find((c) => c.id === "main")?.capabilities ?? []).map((c) => [c.id, c.version ?? 1]),
+      ),
     }));
   }
 

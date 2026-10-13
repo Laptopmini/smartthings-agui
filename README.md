@@ -116,14 +116,17 @@ The integration tests run real CopilotKit and `@ag-ui/client` against the real P
 
 ## What was tested, and what wasn't
 
-Tested (13 Oct 2026): `@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, `@copilotkit/a2ui-renderer` 1.79.0 (`@a2ui/web_core` 0.10.4, A2UI v0.9), React 19.3, Node 24.14, Python 3.14.7; headless Chromium (Playwright 1.58.2); a hosted OpenAI-compatible model against SmartThings virtual devices (switch, dimmer, colour bulb, lock, thermostat, contact and multi sensors, garage door), including multi-turn conversations, confirmations and refusals. Room and scene cards, card controls without an agent turn, and cards updating after the agent changes the same device. OAuth end to end with a real OAuth-In app (created with the CLI): sign-in, code exchange, commands with the OAuth token, and a token refresh followed by another command.
+Tested (13 Oct 2026): `@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, `@copilotkit/a2ui-renderer` 1.79.0 (`@a2ui/web_core` 0.10.4, A2UI v0.9), React 19.3, Node 24.14, Python 3.14.7; a hosted OpenAI-compatible model against SmartThings virtual devices (switch, dimmer, colour bulb, lock, thermostat, contact and multi sensors, garage door), including multi-turn conversations, confirmations and refusals. Room and scene cards, card controls without an agent turn, and cards updating after the agent changes the same device. OAuth end to end with a real OAuth-In app (created with the CLI): sign-in, code exchange, commands with the OAuth token, and a token refresh followed by another command.
 
 Also not yet verified: whether SmartThings rotates refresh tokens (both cases are handled), and refresh after a real 24-hour expiry (the refresh was triggered manually).
 
+Browsers: the same end-to-end run (room cards, a card control, a confirmed unlock), on the production build, passed in Google Chrome 155 (headed), Firefox 146 and WebKit 26 (Safari's engine) through Playwright 1.58.2, and in phone emulation for an iPhone 15 (WebKit) and a Pixel 7 (Chromium).
+
 Not yet verified:
 - Local models (LM Studio and similar): planned after the initial release. So far one hosted model has been tested end to end.
-- Real hardware, `run_scene` against real scenes, and capability versions other than 1.
-- Other browsers and headed mode (only headless Chromium was used); mobile layouts.
+- Real hardware, and `run_scene` against real scenes (only virtual devices were commanded).
+- The Safari app itself and real phones (WebKit and device emulation stand in for them).
+- Capability versions other than 1: handled, and unit-tested with a made-up version 2, but no real device reporting one was available. Devices with several components (some ovens, hubs) are addressed through their `main` component only.
 
 ## Known upstream issues
 

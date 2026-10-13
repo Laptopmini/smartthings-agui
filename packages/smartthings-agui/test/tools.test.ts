@@ -20,7 +20,7 @@ describe("reading", () => {
   it("lists devices across pages with rooms, filtered capabilities and confirmation flags", async () => {
     const { call, st } = setup();
     const devices = await call("list_devices");
-    expect(devices).toHaveLength(6);
+    expect(devices).toHaveLength(7);
     expect(devices.find((d: any) => d.deviceId === "bulb")).toEqual({
       deviceId: "bulb",
       label: "Color Bulb",
@@ -36,7 +36,7 @@ describe("reading", () => {
     const { call, st } = setup();
     await call("set_switch", { deviceId: "dimmer", state: "on" });
     await call("set_switch", { deviceId: "dimmer", state: "off" });
-    expect(st.calls.filter((c) => c.path.startsWith("/devices?") || c.path === "/devices")).toHaveLength(2); // 2 pages, once
+    expect(st.calls.filter((c) => c.path.startsWith("/devices?") || c.path === "/devices")).toHaveLength(3); // 3 pages, once
   });
 
   it("summarises status and rounds noisy virtual-device values", async () => {
@@ -139,6 +139,16 @@ describe("policy", () => {
       (await call("execute_command", { deviceId: "dimmer", capability: "switchLevel", command: "setLevel", arguments: '["30"]' }))
         .state.level,
     ).toBe(30);
+  });
+
+  it("validates against the capability version the device reports", async () => {
+    const { call, st } = setup();
+    const ok = await call("execute_command", { deviceId: "fan", capability: "fanSpeed", command: "setFanSpeed", arguments: "[3]" });
+    expect(ok).not.toHaveProperty("error");
+    expect(st.calls.some((c) => c.path === "/capabilities/fanSpeed/2")).toBe(true);
+    expect(
+      (await call("execute_command", { deviceId: "fan", capability: "fanSpeed", command: "setFanSpeed", arguments: "[9]" })).error,
+    ).toBe("speed must be integer, 0 to 4; got 9.");
   });
 
   it("doesn't offer confirm_command until the user opts in", () => {

@@ -273,7 +273,10 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
         async (args: { deviceId: string; capability: string; command: string; arguments?: unknown }) => {
           const capability = String(args.capability);
           assertGenericAllowed(capability);
-          const definition = await client.getCapability(capability);
+          const device = await client.getDevice(String(args.deviceId));
+          // The definition for the version this device reports (all 280 on the
+          // test account were version 1, but the API allows others).
+          const definition = await client.getCapability(capability, device.versions?.[capability] ?? 1);
           const commandArgs = validateArguments(definition, String(args.command), toArray(args.arguments));
           return commandDevice(args.deviceId, [{ capability, command: String(args.command), arguments: commandArgs }]);
         },

@@ -51,14 +51,20 @@ body {
 }
 .st-settings summary {
   cursor: pointer;
+  white-space: nowrap;
 }
-.st-settings[open] {
-  z-index: 10;
+.st-settings-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  width: min(280px, calc(100vw - 32px));
+  box-sizing: border-box;
   background: var(--st-bg);
   border: 1px solid var(--st-border);
   border-radius: 10px;
   padding: 8px 12px;
-  max-width: 280px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 12%);
 }
 .st-settings p {
   color: var(--st-muted);

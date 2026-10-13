@@ -47,7 +47,11 @@ async function runCardAction(tools: Tools, action: UserAction): Promise<string |
 
 function DevicesSurface(props: { id: string; title: string; devices: DeviceResult[]; tools: Tools; live: LiveDevices }) {
   const { id, title, devices, tools, live } = props;
-  const operations = useMemo(() => deviceSurface(id, title, devices), [id, title, devices]);
+  // Start from the latest known state, not the tool's original result: chat
+  // re-renders (and the virtualized message list on small screens) rebuild
+  // cards from history, and a card built from the old result showed a stale
+  // state until the live update landed (seen on a Pixel 7 emulation, 2 of 3 runs).
+  const operations = useMemo(() => deviceSurface(id, title, live.current(devices)), [id, title, devices, live]);
   return (
     <Surface
       surfaceId={id}
