@@ -120,12 +120,12 @@ Tested (13 Oct 2026): `@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `l
 
 Also not yet verified: whether SmartThings rotates refresh tokens (both cases are handled), and refresh after a real 24-hour expiry (the refresh was triggered manually).
 
-Browsers: the same end-to-end run (room cards, a card control, a confirmed unlock), on the production build, passed in Google Chrome 155 (headed), Firefox 146 and WebKit 26 (Safari's engine) through Playwright 1.58.2, and in phone emulation for an iPhone 15 (WebKit) and a Pixel 7 (Chromium).
+Browsers: the same end-to-end run (room cards, a card control, a confirmed unlock), on the production build, passed in Google Chrome 155 (headed), Firefox 146 and WebKit 26 (Safari's engine) through Playwright 1.58.2, and in phone emulation for an iPhone 15 (WebKit) and a Pixel 7 (Chromium). By hand: Safari on macOS and Safari on an iPhone, signing in with OAuth, over HTTPS on a home network.
 
 Not yet verified:
 - Local models (LM Studio and similar): planned after the initial release. So far one hosted model has been tested end to end.
 - Real hardware (only virtual devices were commanded). Scenes were verified with a scene of virtual devices: the agent runs it only after the confirmation press, Cancel leaves everything as it was, and a scene card's button runs it.
-- The Safari app itself and real phones (WebKit and device emulation stand in for them).
+- Android phones other than in emulation.
 - Capability versions other than 1: handled, and unit-tested with a made-up version 2, but no real device reporting one was available. Devices with several components (some ovens, hubs) are addressed through their `main` component only.
 
 ## Known upstream issues
