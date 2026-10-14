@@ -26,11 +26,17 @@ tested yet):
 import argparse
 import json
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from router import ContextAwareRouter
+
+# Settings from the repo's .env (see .env.example); real environment variables win.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 # Loopback by default. To try the app from a phone on the same network, set
 # AGENT_HOST=0.0.0.0 and add the page's origin to AGENT_ORIGINS.

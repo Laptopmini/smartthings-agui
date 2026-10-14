@@ -23,8 +23,10 @@ Usage:
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -33,6 +35,9 @@ from pydantic import BaseModel
 # the documented api.smartthings.com/oauth/authorize answered 403 on 13 Oct
 # 2026, so sign-in goes through this host, as the SmartThings CLI's does).
 # Server-to-server, so this host's lack of CORS headers doesn't matter.
+# Settings from the repo's .env (see .env.example); real environment variables win.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
 TOKEN_URL = os.getenv("SMARTTHINGS_TOKEN_URL", "https://oauthin-regional.api.smartthings.com/oauth/token")
 PORT = 8001
 

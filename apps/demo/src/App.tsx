@@ -13,23 +13,26 @@ import {
 } from "smartthings-agui";
 import "./app.css";
 
-/** Direct connect: the browser posts AG-UI runs straight to the Python agent
- *  (cross-origin, no Node runtime, no proxy), and calls api.smartthings.com
- *  itself for every tool. */
-const AGENT_URL = import.meta.env.VITE_AGENT_URL ?? "http://127.0.0.1:8000/run";
+/** Direct connect: the browser posts AG-UI runs to the Python agent (no Node
+ *  runtime in between; the dev server only forwards the request), and calls
+ *  api.smartthings.com itself for every tool. */
+// Same-origin by default: vite.config.ts forwards /agent to the agent, so no
+// agent URL or CORS settings are needed.
+const AGENT_URL = import.meta.env.VITE_AGENT_URL ?? "/agent/run";
 
 const agent = new HttpAgent({ url: AGENT_URL });
 
-/** OAuth is offered when an OAuth-In app is configured (see the README);
- *  otherwise only the personal-token form shows. */
-const OAUTH: OAuthConfig | null =
-  import.meta.env.VITE_SMARTTHINGS_CLIENT_ID && import.meta.env.VITE_TOKEN_EXCHANGE_URL
-    ? {
-        clientId: import.meta.env.VITE_SMARTTHINGS_CLIENT_ID,
-        exchangeUrl: import.meta.env.VITE_TOKEN_EXCHANGE_URL,
-        redirectUri: import.meta.env.VITE_OAUTH_REDIRECT_URI ?? `${location.origin}/`,
-      }
-    : null;
+/** OAuth is offered when an OAuth-In app is configured (SMARTTHINGS_CLIENT_ID in
+ *  the repo's .env; see the README); otherwise only the personal-token form
+ *  shows. The token exchange is reached through the same-origin /exchange route. */
+const CLIENT_ID = import.meta.env.VITE_SMARTTHINGS_CLIENT_ID || __SMARTTHINGS_CLIENT_ID__;
+const OAUTH: OAuthConfig | null = CLIENT_ID
+  ? {
+      clientId: CLIENT_ID,
+      exchangeUrl: import.meta.env.VITE_TOKEN_EXCHANGE_URL ?? "/exchange",
+      redirectUri: import.meta.env.VITE_OAUTH_REDIRECT_URI ?? `${location.origin}/`,
+    }
+  : null;
 
 
 const SETTINGS_KEY = "smartthings-agui:confirm-capabilities";

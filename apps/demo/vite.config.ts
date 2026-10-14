@@ -1,12 +1,12 @@
 import react from "@vitejs/plugin-react";
 import { readFileSync } from "node:fs";
-import { defineConfig, type ProxyOptions } from "vite";
+import { defineConfig, loadEnv, type ProxyOptions } from "vite";
 
 /** Same-origin routes to the two local services, for `vite` and `vite preview`
- *  alike. With `VITE_AGENT_URL=/agent/run` and `VITE_TOKEN_EXCHANGE_URL=/exchange`
- *  the browser talks to one origin only, so the agent and the token exchange
- *  can stay on loopback while a phone uses the app over the network, and an
- *  HTTPS page never calls plain-http services (mixed content). */
+ *  alike (the app uses /agent/run and /exchange by default). The browser talks
+ *  to one origin only: no agent URL or CORS to configure, the services can
+ *  stay on loopback while a phone uses the app over the network, and an HTTPS
+ *  page never calls plain-http services (mixed content). */
 const AGENT = process.env.AGENT_TARGET ?? "http://127.0.0.1:8000";
 const EXCHANGE = process.env.EXCHANGE_TARGET ?? "http://127.0.0.1:8001";
 const proxy: Record<string, ProxyOptions> = {
@@ -25,13 +25,19 @@ const https =
 // `SMARTTHINGS_DEV_TOKEN` pre-fills the sign-in field so the page can be driven
 // without pasting a token. It is injected only by the dev server
 // (`command === "serve"`), never into a build, and lives only in memory.
-export default defineConfig(({ command }) => ({
-  plugins: [react()],
-  define: {
-    __DEV_SMARTTHINGS_TOKEN__: JSON.stringify(
-      command === "serve" ? (process.env.SMARTTHINGS_DEV_TOKEN ?? "") : "",
-    ),
-  },
-  server: { proxy, https },
-  preview: { proxy, https },
-}));
+export default defineConfig(({ command, mode }) => {
+  // The repo's single .env (shared with the agent). Only the OAuth client id is
+  // read from it: it's public by design. The client secret stays server-side.
+  const env = { ...loadEnv(mode, new URL("../..", import.meta.url).pathname, ""), ...process.env };
+  return {
+    plugins: [react()],
+    define: {
+      __DEV_SMARTTHINGS_TOKEN__: JSON.stringify(command === "serve" ? (env.SMARTTHINGS_DEV_TOKEN ?? "") : ""),
+      __SMARTTHINGS_CLIENT_ID__: JSON.stringify(env.SMARTTHINGS_CLIENT_ID ?? ""),
+    },
+    // DEMO_HOST=0.0.0.0 makes the app reachable from a phone on the same network
+    // (the agent and token exchange stay on loopback behind the proxy).
+    server: { proxy, https, host: env.DEMO_HOST },
+    preview: { proxy, https, host: env.DEMO_HOST },
+  };
+});

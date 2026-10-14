@@ -12,3 +12,5 @@ coverage/
 notes/
 /CLAUDE.md
 /Screenshot*.png
+# Certificates and keys (e.g. a local test certificate)
+*.pem

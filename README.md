@@ -53,57 +53,64 @@ What the model *does* see: with a hosted model, the conversation, device and roo
 
 The list of confirm-only capabilities is hard-coded on purpose: the API's per-command `sensitive` flag isn't a safety signal (`lock.unlock` reports `"sensitive": false`). The rules live in one small file, [`policy.ts`](packages/smartthings-agui/src/policy.ts), with tests in [`tools.test.ts`](packages/smartthings-agui/test/tools.test.ts) and the confirmation flow tested end to end in [`roundTrip.test.tsx`](packages/smartthings-agui/test/integration/roundTrip.test.tsx).
 
-## Run it
-
-Requirements: Node 24, Python 3.14 with [uv](https://docs.astral.sh/uv/), a SmartThings account, and an OpenAI-compatible model with native tool calling.
+## Use it in your app
 
 ```sh
-npm install
-(cd agent && uv sync)
+npm install smartthings-agui @copilotkit/react-core@1.79.0 @ag-ui/client@1.0.2
 ```
-
-**1. The agent.** Point it at any OpenAI-compatible endpoint whose model supports native tool calls:
-
-```sh
-cd agent
-AGENT_API_BASE=https://… AGENT_API_KEY=… AGENT_MODEL=… uv run python serve.py
-```
-
-`AGENT_EXTRA_BODY` passes provider-specific options through as JSON (for example, an option that keeps a reasoning model's thinking out of the chat). `uv run python serve.py --scripted` runs a deterministic stand-in model for testing. Local models (LM Studio and the like) should work the same way but haven't been tested yet; that's planned after the initial release.
-
-**2. The app.**
-
-```sh
-npm run dev -w demo        # http://localhost:5173
-```
-
-Sign in with a [personal access token](https://account.smartthings.com/tokens) (they expire after 24 hours) with device, scene and location scopes.
-
-**3. OAuth (optional, for anything longer-lived).** SmartThings' documented OAuth token endpoint needs the app's client secret, which can't live in a browser, so a small separate service does the exchange and refreshes. It stores nothing and never sees a conversation. (Sign-in goes through `oauthin-regional.api.smartthings.com`, the host the SmartThings CLI uses: the documented `api.smartthings.com/oauth/authorize` answered 403 Forbidden to every request when this was built.)
-
-```sh
-# an OAuth-In app created with the SmartThings CLI (`smartthings apps:create`),
-# redirect URI http://localhost:5173/
-cd agent && SMARTTHINGS_CLIENT_ID=... SMARTTHINGS_CLIENT_SECRET=... \
-  SMARTTHINGS_REDIRECT_URI=http://localhost:5173/ uv run python token_exchange.py   # :8001
-VITE_SMARTTHINGS_CLIENT_ID=... VITE_TOKEN_EXCHANGE_URL=http://127.0.0.1:8001 npm run dev -w demo
-```
-
-### Use it in your own app
 
 ```tsx
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
 import { SmartThingsClient, useSmartThingsTools } from "smartthings-agui";
 
-const client = new SmartThingsClient(token); // or () => session.accessToken()
+const agent = new HttpAgent({ url: "http://localhost:8000/run" }); // any AG-UI agent
+const client = new SmartThingsClient(token); // a personal access token, or () => session.accessToken()
 
-function Tools() {
-  useSmartThingsTools(client, { confirmCapabilities: ["lock"] }); // default: none
+function SmartThings() {
+  useSmartThingsTools(client); // registers the tools, device cards and confirmation flow
   return null;
 }
-// inside <CopilotKit …> next to <CopilotChat />
+
+export function App() {
+  return (
+    <CopilotKit selfManagedAgents={{ default: agent }}>
+      <SmartThings />
+      <CopilotChat />
+    </CopilotKit>
+  );
+}
 ```
 
-Not on npm yet.
+- **Agent:** any AG-UI agent works, since the tools run in the browser. To use the reference agent in [`agent/`](agent/), see the demo below and allow your app's origin with `AGENT_ORIGINS=http://localhost:3000`.
+- **Locks, doors, valves, security:** off by default. Turn them on per capability with `useSmartThingsTools(client, { confirmCapabilities: ["lock"] })`; each command still waits for the person's confirmation. Pass `onOpenSettings` to let the "turned off" card open your settings.
+- **Sign-in:** a [personal access token](https://account.smartthings.com/tokens) is enough to start (it lasts 24 hours). For OAuth, `beginSignIn` and `OAuthSession` handle the browser side, and [`agent/token_exchange.py`](agent/token_exchange.py) holds the client secret ([details](docs/how-it-works.md#sign-in)).
+
+## Try the demo
+
+You need Node 24, [uv](https://docs.astral.sh/uv/) (it fetches Python 3.14 itself if needed), a SmartThings account, and an API key for an OpenAI-compatible model that supports tool calling.
+
+```sh
+git clone https://github.com/Laptopmini/smartthings-agui.git
+cd smartthings-agui
+npm install
+cp .env.example .env    # set AGENT_API_KEY and AGENT_MODEL (and AGENT_API_BASE if not OpenAI)
+npm run dev             # starts the agent and the app: http://localhost:5173
+```
+
+Sign in with a [personal access token](https://account.smartthings.com/tokens): give it the Devices, Scenes and Locations permissions. Then try "Show me the living room" or "What scenes do I have?".
+
+**Optional: "Sign in with SmartThings" (OAuth), about two minutes:**
+
+1. Run `npx @smartthings/cli apps:create` (the first run signs you in to SmartThings in the browser) and choose **OAuth-In App**.
+2. Enter any display name and description; leave the icon and target URL empty.
+3. Scopes: `r:devices:*`, `x:devices:*`, `r:scenes:*`, `x:scenes:*`, `r:locations:*`.
+4. Redirect URI: `http://localhost:5173/`
+5. Put the client ID and secret it prints in `.env` as `SMARTTHINGS_CLIENT_ID` and `SMARTTHINGS_CLIENT_SECRET` (the secret is shown only once).
+6. Restart `npm run dev`. The sign-in page now has **Sign in with SmartThings**.
+
+**Try it without touching real hardware:** create a few [virtual devices](docs/how-it-works.md#testing-against-virtual-devices), put them in their own room, and ask to see that room. To use the app from a phone, see [Trying it on a phone](docs/how-it-works.md#trying-it-on-a-phone).
 
 ## Tests
 

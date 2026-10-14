@@ -2,8 +2,12 @@
   "name": "smartthings-agui-monorepo",
   "private": true,
   "license": "Apache-2.0",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
+    "dev": "node scripts/dev.mjs",
     "test": "npm test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   }
