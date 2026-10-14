@@ -1,4 +1,4 @@
-import type { DeviceResult } from "./tools";
+import type { DeviceResult } from "./tools.js";
 
 type Listener = (device: DeviceResult) => void;
 

@@ -1,4 +1,4 @@
-import type { ConfirmCapability } from "./policy";
+import type { ConfirmCapability } from "./policy.js";
 
 /** The confirm-only capabilities the user has turned on, readable live.
  *

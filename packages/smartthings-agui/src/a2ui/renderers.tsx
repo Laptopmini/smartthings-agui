@@ -1,6 +1,6 @@
 import type { CatalogRenderers, RendererProps } from "@copilotkit/a2ui-renderer";
 import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import type { definitions } from "./definitions";
+import type { definitions } from "./definitions.js";
 
 /** React renderers for the catalog.
  *

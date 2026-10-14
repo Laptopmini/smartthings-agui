@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
-import type { DeviceSummary } from "./client";
-import type { DeviceState } from "./status";
-import { isConfirmDisabled, isToolError, type ConfirmDisabled, type DeviceResult, type ToolResult } from "./tools";
+import type { DeviceSummary } from "./client.js";
+import type { DeviceState } from "./status.js";
+import { isConfirmDisabled, isToolError, type ConfirmDisabled, type DeviceResult, type ToolResult } from "./tools.js";
 
 /** Inline styles keep the package free of a stylesheet the host app would have
  *  to import. Colours inherit from the chat, with translucent fills, so the
@@ -143,7 +143,7 @@ export function ConfirmCard<A extends Record<string, unknown>>(props: {
   confirmLabel: string;
   /** How to show the device after a confirmed command (default: DeviceCard). */
   renderDevice?: (device: DeviceResult) => ReactNode;
-  /** Opens the app's Safety settings, offered when a control is turned off. */
+  /** Opens the app's settings, offered when a control is turned off. */
   onOpenSettings?: () => void;
   /** Live settings: the card re-checks when they change (see confirmSettings.ts). */
   settings?: { subscribe: (listener: () => void) => () => void; getVersion: () => number };
@@ -198,7 +198,7 @@ export function ConfirmCard<A extends Record<string, unknown>>(props: {
         {onOpenSettings && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button style={{ ...button, fontWeight: 600 }} onClick={onOpenSettings}>
-              Open Safety settings
+              Open settings
             </button>
             <button
               style={button}

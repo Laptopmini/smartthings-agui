@@ -31,6 +31,8 @@ export default defineConfig(({ command, mode }) => {
   const env = { ...loadEnv(mode, new URL("../..", import.meta.url).pathname, ""), ...process.env };
   return {
     plugins: [react()],
+    // The package's source, not its build: edits show up without a rebuild.
+    resolve: { alias: { "smartthings-agui": new URL("../../packages/smartthings-agui/src/index.ts", import.meta.url).pathname } },
     define: {
       __DEV_SMARTTHINGS_TOKEN__: JSON.stringify(command === "serve" ? (env.SMARTTHINGS_DEV_TOKEN ?? "") : ""),
       __SMARTTHINGS_CLIENT_ID__: JSON.stringify(env.SMARTTHINGS_CLIENT_ID ?? ""),

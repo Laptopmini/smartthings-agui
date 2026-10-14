@@ -19,6 +19,9 @@
     "paths": {
       "zod/v3": [
         "../../node_modules/zod-v3-types/v3/index.d.cts"
+      ],
+      "smartthings-agui": [
+        "../../packages/smartthings-agui/src/index.ts"
       ]
     }
   },

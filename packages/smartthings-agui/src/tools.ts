@@ -1,5 +1,5 @@
-import { jsonSchemaParameters, validateArguments } from "./capabilityTools";
-import { type Command, type DeviceSummary, type SmartThingsClient } from "./client";
+import { jsonSchemaParameters, validateArguments } from "./capabilityTools.js";
+import { type Command, type DeviceSummary, type SmartThingsClient } from "./client.js";
 import {
   CONFIRM_COMMANDS,
   CONFIRM_LABELS,
@@ -9,8 +9,8 @@ import {
   assertGenericAllowed,
   assertNoConfirmCapability,
   type ConfirmCapability,
-} from "./policy";
-import { summarizeStatus, type DeviceState } from "./status";
+} from "./policy.js";
+import { summarizeStatus, type DeviceState } from "./status.js";
 
 /** What every device-changing or device-reading tool returns: the state read
  *  back from SmartThings after the command, so the card and the model see what
@@ -433,7 +433,7 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
             disabled: true as const,
             capability,
             label: CONFIRM_LABELS[capability],
-            message: `${CONFIRM_LABELS[capability]} are turned off in Safety settings, so ${device.label} can't be controlled from here.`,
+            message: `${CONFIRM_LABELS[capability]} are turned off in this app's settings, so ${device.label} can't be controlled from here.`,
           };
         }
         return { device, summary: `${args.command} ${device.label}${device.room ? ` (${device.room})` : ""}` };

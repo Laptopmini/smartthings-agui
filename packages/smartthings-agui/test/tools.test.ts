@@ -158,7 +158,7 @@ describe("policy", () => {
       disabled: true,
       capability: "valve",
       label: "Valves",
-      message: "Valves are turned off in Safety settings, so Water Valve can't be controlled from here.",
+      message: "Valves are turned off in this app's settings, so Water Valve can't be controlled from here.",
     });
     expect(await tools.confirmCommand.execute({ deviceId: "valve", capability: "valve", command: "close" })).toHaveProperty(
       "error",

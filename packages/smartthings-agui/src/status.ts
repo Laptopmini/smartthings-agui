@@ -1,4 +1,4 @@
-import type { ComponentStatus } from "./client";
+import type { ComponentStatus } from "./client.js";
 
 /** The attributes the typed tools and device cards understand.
  *

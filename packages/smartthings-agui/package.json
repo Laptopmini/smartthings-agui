@@ -1,18 +1,56 @@
 {
   "name": "smartthings-agui",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
+  "description": "Talk to your SmartThings home from any AG-UI agent: CopilotKit frontend tools, A2UI device cards, and confirmation before anything security-sensitive.",
+  "keywords": [
+    "smartthings",
+    "ag-ui",
+    "copilotkit",
+    "a2ui",
+    "smart-home",
+    "frontend-tools",
+    "agent"
+  ],
   "license": "Apache-2.0",
+  "homepage": "https://github.com/Laptopmini/smartthings-agui#readme",
+  "bugs": "https://github.com/Laptopmini/smartthings-agui/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laptopmini/smartthings-agui.git",
+    "directory": "packages/smartthings-agui"
+  },
   "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/**/*.map",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
   "scripts": {
+    "build": "vite build --config vite.build.config.ts && tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@a2ui/web_core": "0.10.4",
+    "@copilotkit/a2ui-renderer": "1.79.0"
+  },
   "peerDependencies": {
     "@copilotkit/react-core": "1.79.0",
-    "react": "^19"
+    "react": "^19",
+    "zod": ">=3.25.0"
   },
   "devDependencies": {
     "@ag-ui/client": "1.0.2",

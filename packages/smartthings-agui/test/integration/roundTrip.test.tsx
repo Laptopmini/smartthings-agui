@@ -136,7 +136,7 @@ it("tells the person a control is turned off, and commands nothing", async () =>
     run = send("Unlock Front Door");
   });
   // Waiting for the card (outside act) lets its effect answer the agent.
-  expect((await screen.findByText(/Locks are turned off in Safety settings/, {}, { timeout: 10_000 })).textContent).toMatch(
+  expect((await screen.findByText(/Locks are turned off in this app's settings/, {}, { timeout: 10_000 })).textContent).toMatch(
     /Front Door/,
   );
   await act(async () => {

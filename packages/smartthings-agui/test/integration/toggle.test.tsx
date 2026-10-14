@@ -49,7 +49,7 @@ it("a turned-off control points at the settings, then continues once it's turned
       agent.addMessage({ id: "u1", role: "user", content: "Unlock Front Door" });
       run = core!.runAgent({ agent });
     });
-    const open = await screen.findByRole("button", { name: "Open Safety settings" }, { timeout: 10_000 });
+    const open = await screen.findByRole("button", { name: "Open settings" }, { timeout: 10_000 });
     expect(screen.getByTestId("confirm-disabled").textContent).toMatch(/Locks are turned off/);
     act(() => open.click());
     expect(openSettings).toHaveBeenCalledTimes(1);

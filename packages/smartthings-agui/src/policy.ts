@@ -32,7 +32,7 @@ export type ConfirmCapability = keyof typeof CONFIRM_COMMANDS;
 
 export const CONFIRM_CAPABILITIES: ReadonlySet<string> = new Set(Object.keys(CONFIRM_COMMANDS));
 
-/** How the app's Safety settings name each one. */
+/** How each one is named to the person (settings, messages). */
 export const CONFIRM_LABELS: Record<ConfirmCapability, string> = {
   lock: "Locks",
   garageDoorControl: "Garage doors",
@@ -99,7 +99,7 @@ export function assertConfirmable(
 ): asserts capability is ConfirmCapability {
   assertConfirmCommand(capability, command);
   if (!enabled.has(capability)) {
-    throw new PolicyError(`${CONFIRM_LABELS[capability]} are turned off in the app's Safety settings.`);
+    throw new PolicyError(`${CONFIRM_LABELS[capability]} are turned off in this app's settings.`);
   }
 }
 

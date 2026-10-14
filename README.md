@@ -66,7 +66,7 @@ export function App() {
 }
 ```
 
-Any AG-UI agent works, since the tools run in the browser. Locks, doors, valves, security are off by default. Turn them on per capability with `useSmartThingsTools(client, { confirmCapabilities: ["lock"] })`; each command still waits for the person's confirmation.
+Needs React 19 and a bundler (the package is ES modules only). Any AG-UI agent works, since the tools run in the browser. Locks, doors, valves, security are off by default. Turn them on per capability with `useSmartThingsTools(client, { confirmCapabilities: ["lock"] })`; each command still waits for the person's confirmation.
 
 ## Try the demo
 

@@ -1,5 +1,5 @@
-import type { CapabilityDefinition, JsonSchema } from "./client";
-import { CONFIRM_CAPABILITIES } from "./policy";
+import type { CapabilityDefinition, JsonSchema } from "./client.js";
+import { CONFIRM_CAPABILITIES } from "./policy.js";
 
 
 export interface GeneratedTool {

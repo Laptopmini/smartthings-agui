@@ -4,9 +4,9 @@
  *  fixed; only the data model changes, so a live update is one
  *  `updateDataModel` for one item.
  */
-import type { SceneSummary } from "../client";
-import type { DeviceState } from "../status";
-import type { DeviceResult } from "../tools";
+import type { SceneSummary } from "../client.js";
+import type { DeviceState } from "../status.js";
+import type { DeviceResult } from "../tools.js";
 
 /** Every createSurface names it; must equal the id the catalog registers. */
 export const CATALOG_ID = "urn:smartthings-agui:catalog:v1";

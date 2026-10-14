@@ -16,10 +16,10 @@ import {
   type A2UIClientEventMessage,
 } from "@copilotkit/a2ui-renderer";
 import { useEffect, useRef, useState } from "react";
-import type { LiveDevices } from "../liveDevices";
-import type { DeviceResult } from "../tools";
-import { catalog } from "./catalog";
-import { updateTile, type Operation } from "./surfaces";
+import type { LiveDevices } from "../liveDevices.js";
+import type { DeviceResult } from "../tools.js";
+import { catalog } from "./catalog.js";
+import { updateTile, type Operation } from "./surfaces.js";
 
 export type UserAction = NonNullable<A2UIClientEventMessage["userAction"]>;
 

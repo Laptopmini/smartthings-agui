@@ -1,13 +1,13 @@
 import { useAgentContext, useFrontendTools, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { Surface, type UserAction } from "./a2ui/Surface";
-import { deviceSurface, sceneSurface } from "./a2ui/surfaces";
-import { ConfirmCard, DeviceListCard, ErrorCard, PendingCard, parseResult } from "./cards";
-import type { DeviceSummary, SceneSummary, SmartThingsClient } from "./client";
-import { ConfirmSettings } from "./confirmSettings";
-import { LiveDevices } from "./liveDevices";
-import type { ConfirmCapability } from "./policy";
-import { createTools, isToolError, type ConfirmArgs, type DeviceResult } from "./tools";
+import { Surface, type UserAction } from "./a2ui/Surface.js";
+import { deviceSurface, sceneSurface } from "./a2ui/surfaces.js";
+import { ConfirmCard, DeviceListCard, ErrorCard, PendingCard, parseResult } from "./cards.js";
+import type { DeviceSummary, SceneSummary, SmartThingsClient } from "./client.js";
+import { ConfirmSettings } from "./confirmSettings.js";
+import { LiveDevices } from "./liveDevices.js";
+import type { ConfirmCapability } from "./policy.js";
+import { createTools, isToolError, type ConfirmArgs, type DeviceResult } from "./tools.js";
 
 export interface SmartThingsToolsOptions {
   /** CONFIRM capabilities the user has turned on. Default: none, so locks,
