@@ -1,7 +1,6 @@
 {
   "name": "smartthings-agui",
   "version": "0.1.0",
-  "private": true,
   "description": "Talk to your SmartThings home from any AG-UI agent: CopilotKit frontend tools, A2UI device cards, and confirmation before anything security-sensitive.",
   "keywords": [
     "smartthings",
