@@ -1,6 +1,8 @@
 import type { CatalogRenderers, RendererProps } from "@copilotkit/a2ui-renderer";
 import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { definitions } from "./definitions.js";
+import { ICONS } from "./iconComponents.js";
+import type { IconName } from "./icons.js";
 
 /** React renderers for the catalog.
  *
@@ -48,6 +50,25 @@ const tile: CSSProperties = {
   minWidth: 0,
 };
 const muted: CSSProperties = { opacity: 0.65, fontSize: 12 };
+const iconBox: CSSProperties = {
+  width: 44,
+  height: 44,
+  borderRadius: 22,
+  display: "grid",
+  placeItems: "center",
+  flex: "none",
+};
+const iconButton: CSSProperties = { border: "none", padding: 0, cursor: "pointer" };
+
+/** Tone → colours that read in light and dark themes alike. */
+const TONES: Record<string, { color: string; background: string }> = {
+  on: { color: "#e0a100", background: "color-mix(in srgb, #f5b301 20%, transparent)" },
+  // 55%: at 45% a crossed-out bulb was hard to make out on white.
+  off: { color: "color-mix(in srgb, currentColor 55%, transparent)", background: "color-mix(in srgb, currentColor 7%, transparent)" },
+  alert: { color: "#e5484d", background: "color-mix(in srgb, #e5484d 16%, transparent)" },
+  neutral: { color: "currentColor", background: "color-mix(in srgb, currentColor 10%, transparent)" },
+};
+
 const control: CSSProperties = {
   padding: "4px 12px",
   borderRadius: 999,
@@ -95,34 +116,63 @@ export const renderers: CatalogRenderers<typeof definitions> = {
     const p = props as typeof props & { setLevel?: (n: number) => void };
     const label = str(p.label);
     const color = str(p.color);
+    const action = str(p.action) || "none";
+    const actionLabel = str(p.actionLabel) || label;
+    const Icon = ICONS[str(p.icon) as IconName] ?? ICONS.box;
+    const tone = TONES[str(p.tone)] ?? TONES.neutral;
+    // A colour bulb that's on shows its own colour.
+    const iconColor = str(p.tone) === "on" && color ? color : tone.color;
+    // The SVG strokes with currentColor; the colour is set on its container,
+    // since an SVG attribute won't take CSS functions like color-mix().
+    const picture = <Icon size={22} strokeWidth={2} aria-hidden />;
     return (
       <div style={tile} data-testid="device-tile" data-label={label}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontWeight: 600, minWidth: 0 }} title={label}>
-          {color && (
-            <span aria-hidden style={{ width: 10, height: 10, borderRadius: 5, background: color, flex: "none", marginTop: 5 }} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "start" }}>
+          <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
+            {/* Up to two lines, then an ellipsis: on a phone a tile is ~170 px
+                wide and one line cut most names after ~14 characters. */}
+            <span
+              title={label}
+              style={{
+                fontWeight: 600,
+                display: "-webkit-box",
+                WebkitBoxOrient: "vertical",
+                WebkitLineClamp: 2,
+                overflow: "hidden",
+                overflowWrap: "anywhere",
+              }}
+            >
+              {label}
+            </span>
+            {str(p.room) && <div style={muted}>{str(p.room)}</div>}
+            {str(p.stateText) && (
+              <div style={{ fontSize: 13 }} data-testid="tile-state">
+                {str(p.stateText)}
+              </div>
+            )}
+          </div>
+          {/* The icon is the main button (toggle, or ask to confirm), as in most
+              smart-home apps; its label keeps it usable with a keyboard and a
+              screen reader now that the text button is gone. */}
+          {action === "none" ? (
+            <span style={{ ...iconBox, background: tone.background, color: iconColor }} data-testid="tile-icon" data-tone={str(p.tone)}>
+              {picture}
+            </span>
+          ) : (
+            <button
+              type="button"
+              style={{ ...iconBox, ...iconButton, background: tone.background, color: iconColor }}
+              aria-label={actionLabel}
+              title={actionLabel}
+              aria-pressed={action === "toggle" ? p.isOn === true : undefined}
+              data-testid="tile-icon"
+              data-tone={str(p.tone)}
+              onClick={() => call(p.press)}
+            >
+              {picture}
+            </button>
           )}
-          {/* Up to two lines, then an ellipsis: on a phone a tile is ~170 px
-              wide and one line cut most names after ~14 characters. */}
-          <span
-            style={{
-              display: "-webkit-box",
-              WebkitBoxOrient: "vertical",
-              WebkitLineClamp: 2,
-              overflow: "hidden",
-              overflowWrap: "anywhere",
-              minWidth: 0,
-            }}
-          >
-            {label}
-          </span>
         </div>
-        {str(p.room) && <div style={muted}>{str(p.room)}</div>}
-        {str(p.stateText) && <div style={{ fontSize: 13 }} data-testid="tile-state">{str(p.stateText)}</div>}
-        {p.canToggle === true && (
-          <button style={control} aria-pressed={p.isOn === true} onClick={() => call(p.toggle)}>
-            {p.isOn ? "Turn off" : "Turn on"}
-          </button>
-        )}
         {p.canDim === true && typeof p.level === "number" && (
           <LevelSlider
             level={p.level}
@@ -133,7 +183,6 @@ export const renderers: CatalogRenderers<typeof definitions> = {
             }}
           />
         )}
-        {str(p.note) && <div style={muted}>{str(p.note)}</div>}
       </div>
     );
   },

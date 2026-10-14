@@ -23,6 +23,14 @@ import { updateTile, type Operation } from "./surfaces.js";
 
 export type UserAction = NonNullable<A2UIClientEventMessage["userAction"]>;
 
+/** What a card action leads to: nothing, a message (optionally with a button
+ *  to open the app's settings), or a confirmation to show before running. */
+export type CardOutcome =
+  | string
+  | undefined
+  | { message: string; openSettings?: boolean }
+  | { confirm: { summary: string; confirmLabel: string; run: () => Promise<CardOutcome> } };
+
 function Feeder({ surfaceId, operations }: { surfaceId: string; operations: Operation[] }) {
   const { processMessages, getSurface } = useA2UIActions();
   const lastHash = useRef("");
@@ -57,6 +65,64 @@ function LiveTiles(props: { surfaceId: string; deviceIds: string[]; live: LiveDe
   return null;
 }
 
+const small: React.CSSProperties = { fontSize: 12 };
+const pill: React.CSSProperties = {
+  padding: "4px 12px",
+  borderRadius: 999,
+  border: "1px solid color-mix(in srgb, currentColor 30%, transparent)",
+  background: "transparent",
+  color: "inherit",
+  font: "inherit",
+  fontSize: 13,
+  cursor: "pointer",
+};
+
+/** Under the cards: a message, or the confirmation a card's tap asked for
+ *  (locks, doors, valves, security). Nothing runs until its button is pressed. */
+function Outcome(props: {
+  outcome: CardOutcome;
+  busy: boolean;
+  onOpenSettings?: () => void;
+  onConfirm: (run: () => Promise<CardOutcome>) => void;
+  onCancel: () => void;
+}) {
+  const { outcome, busy, onOpenSettings, onConfirm, onCancel } = props;
+  if (!outcome) return null;
+  if (typeof outcome === "string") {
+    return (
+      <div role="status" style={{ ...small, opacity: 0.8 }} data-testid="surface-message">
+        {outcome}
+      </div>
+    );
+  }
+  if ("confirm" in outcome) {
+    const { summary, confirmLabel, run } = outcome.confirm;
+    return (
+      <div role="group" aria-label="Confirm" data-testid="tile-confirm" style={{ display: "grid", gap: 6, margin: "6px 0" }}>
+        <div style={{ fontWeight: 600, fontSize: 14 }}>{summary}?</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={{ ...pill, fontWeight: 600 }} disabled={busy} onClick={() => onConfirm(run)}>
+            {confirmLabel}
+          </button>
+          <button style={pill} disabled={busy} onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div role="status" data-testid="surface-message" style={{ display: "grid", gap: 6, margin: "6px 0", ...small }}>
+      <div>{outcome.message}</div>
+      {outcome.openSettings && onOpenSettings && (
+        <button style={{ ...pill, justifySelf: "start" }} onClick={onOpenSettings}>
+          Open settings
+        </button>
+      )}
+    </div>
+  );
+}
+
 function RendererOrError({ surfaceId }: { surfaceId: string }) {
   const error = useA2UIError();
   if (error) return <div data-testid="surface-error">Couldn't show this card: {error}</div>;
@@ -71,11 +137,14 @@ export function Surface(props: {
   /** The card's title (live tiles hide a room equal to it). */
   title?: string;
   live: LiveDevices;
-  /** Runs a card's action; resolves to an error message to show, if any. */
-  onAction: (action: UserAction) => Promise<string | undefined>;
+  /** Runs a card's action; resolves to what to show next, if anything. */
+  onAction: (action: UserAction) => Promise<CardOutcome>;
+  /** Opens the app's settings, offered when a control is turned off. */
+  onOpenSettings?: () => void;
 }) {
-  const { surfaceId, operations, deviceIds, live, onAction, title = "" } = props;
-  const [message, setMessage] = useState<string>();
+  const { surfaceId, operations, deviceIds, live, onAction, onOpenSettings, title = "" } = props;
+  const [outcome, setOutcome] = useState<CardOutcome>();
+  const [busy, setBusy] = useState(false);
   return (
     <div data-testid="surface" data-surface-id={surfaceId}>
       <A2UIProvider
@@ -83,19 +152,28 @@ export function Surface(props: {
         theme={viewerTheme}
         onAction={async (event) => {
           if (!event.userAction) return;
-          setMessage(undefined);
-          setMessage(await onAction(event.userAction));
+          setOutcome(undefined);
+          setOutcome(await onAction(event.userAction));
         }}
       >
         <Feeder surfaceId={surfaceId} operations={operations} />
         {deviceIds && <LiveTiles surfaceId={surfaceId} deviceIds={deviceIds} live={live} title={title} />}
         <RendererOrError surfaceId={surfaceId} />
       </A2UIProvider>
-      {message && (
-        <div role="status" style={{ fontSize: 12, opacity: 0.8 }} data-testid="surface-message">
-          {message}
-        </div>
-      )}
+      <Outcome
+        outcome={outcome}
+        busy={busy}
+        onOpenSettings={onOpenSettings}
+        onConfirm={async (run) => {
+          setBusy(true);
+          try {
+            setOutcome(await run());
+          } finally {
+            setBusy(false);
+          }
+        }}
+        onCancel={() => setOutcome(undefined)}
+      />
     </div>
   );
 }

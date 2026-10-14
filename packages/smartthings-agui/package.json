@@ -45,7 +45,8 @@
   },
   "dependencies": {
     "@a2ui/web_core": "0.10.4",
-    "@copilotkit/a2ui-renderer": "1.79.0"
+    "@copilotkit/a2ui-renderer": "1.79.0",
+    "lucide-react": "^0.525.0"
   },
   "peerDependencies": {
     "@copilotkit/react-core": "1.79.0",

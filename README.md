@@ -106,7 +106,7 @@ To prevent an agent from performing unwanted actions, there is a couple of limit
 3. **No side doors.** A device that has any of those capabilities can't be commanded through any other tool (some valves also expose `switch`), and `execute_command` only reaches an allowlist. `execute`, `ocf`, firmware updates, ovens and vendor-specific capabilities are out of reach.
 4. **Scenes always ask**, because a scene can unlock a door and the public API doesn't reliably say what a scene contains. (When the agent runs one, a confirmation card asks; on a scene card the person's own press is the confirmation.)
 5. **The token stays in the browser.** The agent sees tool arguments and results only. Tokens are kept in memory, not storage.
-6. **Card controls follow the same rules.** A button or slider on a card runs through the same tool handlers as the agent, and locks, doors, valves and security systems get no controls on their cards at all.
+6. **Card controls follow the same rules.** A card's icon or slider runs through the same tool handlers as the agent. On a lock, door, valve or security system, tapping the icon only asks ("Unlock Front Door?"), and nothing happens until the person confirms.
 
 What the model *does* see: with a hosted model, the conversation, device and room names, and device states go to that model provider, as with any cloud assistant. Never your SmartThings token. A local model keeps all of it at home (see "not yet verified" below).
 

@@ -22,8 +22,12 @@ export interface DeviceResult {
   state: DeviceState;
   /** The device has a lock, door, valve or security capability (policy.ts rule 2). */
   needsConfirmation?: boolean;
+  /** Which one, so a card can start the confirmation itself. */
+  confirmCapability?: ConfirmCapability;
   /** Set when the device hadn't reported the commanded state yet. */
   pending?: string;
+  /** SmartThings' device category, for the card's icon. */
+  category?: string;
 }
 
 export interface ToolError {
@@ -136,8 +140,10 @@ export function createTools(client: SmartThingsClient, options: ToolOptions) {
       label: device.label,
       room: device.room,
       state: summarizeStatus(await client.getStatus(device.deviceId)),
-      ...(device.capabilities.some((c) => c in CONFIRM_COMMANDS) ? { needsConfirmation: true } : {}),
+      ...(device.category ? { category: device.category } : {}),
     };
+    const guarded = device.capabilities.find((c): c is ConfirmCapability => c in CONFIRM_COMMANDS);
+    if (guarded) Object.assign(result, { needsConfirmation: true, confirmCapability: guarded });
     options.onDeviceResult?.(result);
     return result;
   }

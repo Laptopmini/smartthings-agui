@@ -1,0 +1,46 @@
+import {
+  Activity, AirVent, AlarmSmoke, Blinds, Bot, Box, Camera, CircleDot, CookingPot, DoorClosed, DoorOpen, Droplet,
+  Droplets, Fan, Heater, House, Lightbulb, LightbulbOff, Lock, LockOpen, Microwave, Plug, Power, Radar,
+  Refrigerator, Router, Server, Shield, Siren, Speaker, Thermometer, Tv, Warehouse, WashingMachine,
+  type LucideIcon,
+} from "lucide-react";
+import type { IconName } from "./icons.js";
+
+/** Icon names (icons.ts) → Lucide components. Named imports, so a bundler
+ *  keeps only these few icons. */
+export const ICONS: Record<IconName, LucideIcon> = {
+  lightbulb: Lightbulb,
+  "lightbulb-off": LightbulbOff,
+  power: Power,
+  plug: Plug,
+  lock: Lock,
+  "lock-open": LockOpen,
+  "door-closed": DoorClosed,
+  "door-open": DoorOpen,
+  garage: Warehouse,
+  blinds: Blinds,
+  thermometer: Thermometer,
+  "air-vent": AirVent,
+  fan: Fan,
+  heater: Heater,
+  activity: Activity,
+  radar: Radar,
+  house: House,
+  droplets: Droplets,
+  droplet: Droplet,
+  "alarm-smoke": AlarmSmoke,
+  siren: Siren,
+  camera: Camera,
+  tv: Tv,
+  speaker: Speaker,
+  "cooking-pot": CookingPot,
+  microwave: Microwave,
+  refrigerator: Refrigerator,
+  "washing-machine": WashingMachine,
+  bot: Bot,
+  server: Server,
+  router: Router,
+  button: CircleDot,
+  shield: Shield,
+  box: Box,
+};

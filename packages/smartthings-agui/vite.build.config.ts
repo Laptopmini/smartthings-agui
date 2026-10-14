@@ -10,6 +10,7 @@ const external = [
   "@copilotkit/a2ui-renderer",
   "@a2ui/web_core",
   "zod",
+  "lucide-react",
 ];
 
 export default defineConfig({

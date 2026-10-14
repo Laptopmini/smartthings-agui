@@ -26,7 +26,9 @@ export const definitions = {
     }),
   },
   DeviceTile: {
-    description: "One device: name, room, a one-line state summary, and on/off and level controls when allowed.",
+    description:
+      "One device: name, room, a one-line state summary, a level slider when allowed, and an icon that shows " +
+      "what the device is and its state and doubles as its main button (toggle, or ask to confirm).",
     props: z.object({
       label: CommonSchemas.DynamicString,
       room: CommonSchemas.DynamicString.optional(),
@@ -35,11 +37,14 @@ export const definitions = {
       color: CommonSchemas.DynamicString.optional(),
       isOn: CommonSchemas.DynamicBoolean.optional(),
       level: CommonSchemas.DynamicNumber.optional(),
-      canToggle: CommonSchemas.DynamicBoolean.optional(),
       canDim: CommonSchemas.DynamicBoolean.optional(),
-      // Shown instead of controls, e.g. "Controlled with confirmation in chat".
-      note: CommonSchemas.DynamicString.optional(),
-      toggle: CommonSchemas.Action.optional(),
+      // Icon name from icons.ts, its tone (on/off/alert/neutral), what a tap
+      // does (toggle/confirm/none) and the button's accessible label.
+      icon: CommonSchemas.DynamicString.optional(),
+      tone: CommonSchemas.DynamicString.optional(),
+      action: CommonSchemas.DynamicString.optional(),
+      actionLabel: CommonSchemas.DynamicString.optional(),
+      press: CommonSchemas.Action.optional(),
       changeLevel: CommonSchemas.Action.optional(),
     }),
   },

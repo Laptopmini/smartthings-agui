@@ -190,13 +190,13 @@ it("shows a room as A2UI cards whose controls work and stay live", async () => {
   });
   const tiles = await screen.findAllByTestId("device-tile", {}, { timeout: 10_000 });
   expect(tiles.map((t) => t.dataset.label)).toEqual(["Desk Lamp", "Water Valve", "Office Blind"]);
-  // The valve exposes switch too, but its tile has no controls (policy rule 2).
-  expect(tiles[1].querySelector("button")).toBeNull();
+  // The valve exposes switch too, but its icon only asks to confirm (policy rule 2).
+  expect(tiles[1].querySelector("button")?.getAttribute("aria-label")).toBe("Close Water Valve");
 
   // A click on the card runs the command in the browser, with no agent run.
   const runsBefore = agentRequests.length;
   await act(async () => {
-    tiles[0].querySelector("button")!.click();
+    screen.getByRole("button", { name: "Turn on Desk Lamp" }).click();
   });
   await waitFor(() => expect(smartthings.byId.get("dimmer")!.status.switch.switch.value).toBe("on"));
   expect(agentRequests.length).toBe(runsBefore);

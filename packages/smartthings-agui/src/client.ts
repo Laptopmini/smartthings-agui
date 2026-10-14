@@ -27,6 +27,9 @@ export interface DeviceSummary {
   capabilities: string[];
   /** Capability id → version on `main`, for fetching the right definition. */
   versions?: Record<string, number>;
+  /** SmartThings' device category on `main` ("Light", "SmartLock", "Blind"…),
+   *  for the card's icon. Every device on the test account had one. */
+  category?: string;
 }
 
 export interface SceneSummary {
@@ -64,7 +67,7 @@ type RawDevice = {
   name?: string;
   roomId?: string;
   locationId?: string;
-  components: { id: string; capabilities: CapabilityRef[] }[];
+  components: { id: string; capabilities: CapabilityRef[]; categories?: { name: string }[] }[];
 };
 
 type Page<T> = { items: T[]; _links?: { next?: { href?: string } | null } };
@@ -148,6 +151,7 @@ export class SmartThingsClient {
       room: d.roomId ? rooms.get(d.roomId) : undefined,
       locationId: d.locationId,
       capabilities: (d.components.find((c) => c.id === "main")?.capabilities ?? []).map((c) => c.id),
+      category: d.components.find((c) => c.id === "main")?.categories?.[0]?.name,
       versions: Object.fromEntries(
         (d.components.find((c) => c.id === "main")?.capabilities ?? []).map((c) => [c.id, c.version ?? 1]),
       ),

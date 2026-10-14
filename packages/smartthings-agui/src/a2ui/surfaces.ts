@@ -7,6 +7,7 @@
 import type { SceneSummary } from "../client.js";
 import type { DeviceState } from "../status.js";
 import type { DeviceResult } from "../tools.js";
+import { deviceIcon, type DeviceIcon, type IconName, type IconTone } from "./icons.js";
 
 /** Every createSurface names it; must equal the id the catalog registers. */
 export const CATALOG_ID = "urn:smartthings-agui:catalog:v1";
@@ -23,9 +24,15 @@ export interface TileModel {
   color: string;
   isOn: boolean;
   level: number;
-  canToggle: boolean;
   canDim: boolean;
-  note: string;
+  /** The card's icon button (see icons.ts). */
+  icon: IconName;
+  tone: IconTone;
+  action: DeviceIcon["action"];
+  actionLabel: string;
+  /** For action "confirm": what the tap asks about. */
+  capability: string;
+  command: string;
 }
 
 const temp = (m?: { value: number; unit?: string }) => (m ? `${m.value}°${m.unit ?? ""}` : "");
@@ -56,9 +63,10 @@ export function describeState(state: DeviceState): string {
 export function tileModel(device: DeviceResult, hideRoom = false): TileModel {
   const { state } = device;
   // Rule 2 of policy.ts, mirrored in the UI: a device with a lock, door,
-  // valve or security capability gets no controls on its tile. (A click would
-  // be refused by the handler anyway; this avoids offering it.)
+  // valve or security capability gets no dimmer, and its icon asks for
+  // confirmation instead of acting (see icons.ts).
   const secure = device.needsConfirmation === true;
+  const icon = deviceIcon(device);
   return {
     deviceId: device.deviceId,
     label: device.label,
@@ -70,9 +78,13 @@ export function tileModel(device: DeviceResult, hideRoom = false): TileModel {
         : "",
     isOn: state.switch === "on",
     level: state.level ?? 0,
-    canToggle: !secure && state.switch !== undefined,
     canDim: !secure && state.level !== undefined,
-    note: secure ? "Controlled through the chat, with confirmation." : "",
+    icon: icon.icon,
+    tone: icon.tone,
+    action: icon.action,
+    actionLabel: icon.actionLabel,
+    capability: icon.capability ?? "",
+    command: icon.command ?? "",
   };
 }
 
@@ -87,10 +99,23 @@ const DEVICE_COMPONENTS = [
     color: { path: "color" },
     isOn: { path: "isOn" },
     level: { path: "level" },
-    canToggle: { path: "canToggle" },
     canDim: { path: "canDim" },
-    note: { path: "note" },
-    toggle: { event: { name: "toggle", context: { deviceId: { path: "deviceId" }, isOn: { path: "isOn" } } } },
+    icon: { path: "icon" },
+    tone: { path: "tone" },
+    action: { path: "action" },
+    actionLabel: { path: "actionLabel" },
+    press: {
+      event: {
+        name: "press",
+        context: {
+          deviceId: { path: "deviceId" },
+          action: { path: "action" },
+          isOn: { path: "isOn" },
+          capability: { path: "capability" },
+          command: { path: "command" },
+        },
+      },
+    },
     changeLevel: { event: { name: "setLevel", context: { deviceId: { path: "deviceId" }, level: { path: "level" } } } },
   },
 ];
