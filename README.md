@@ -2,11 +2,9 @@
 
 Talk to your SmartThings home from any [AG-UI](https://docs.ag-ui.com) agent, with device cards in the chat, a confirmation step before anything security-sensitive moves, and a SmartThings token that never leaves your browser.
 
-![Asking for a room shows a card per device; pressing a card's button switches a light directly; asking to unlock a lock shows a confirmation, and it unlocks only after the button is pressed](docs/demo.gif)
-
-*Recorded against SmartThings virtual devices.*
-
-> Not affiliated with or endorsed by Samsung. "SmartThings" is used only to describe what this works with.
+<p align="center">
+  <img src="docs/demo.gif" />
+</p>
 
 ## How it works
 
@@ -23,9 +21,9 @@ Any AG-UI agent. Reference: Python, FastAPI + the LlamaIndex AG-UI router.
 It has no SmartThings code and no SmartThings credentials.
 ```
 
-**Cards.** Device and scene cards are [A2UI](https://a2ui.org) v0.9 surfaces from a small catalog (`TileGrid`, `DeviceTile`, `SceneButton`). The agent decides *what* to show (`show_devices(room)`); the browser builds the surface from live device data, so the model never writes UI JSON and never needs the catalog's schemas in its context. Every status read updates one shared store, and every card showing that device follows: a lamp switched by the agent updates the card you clicked a minute ago.
+Device and scene cards are [A2UI](https://a2ui.org) v0.9 surfaces from a small catalog. The agent decides *what* to show; the browser builds the surface from live device data, so the model never writes UI JSON and never needs the catalog's schemas in its context.
 
-SmartThings capabilities are registered with CopilotKit as **frontend tools**: the agent decides to call `set_level`, the browser runs it against `api.smartthings.com` with the user's token, and the agent gets the result back. The same pattern as a Home Assistant client whose tools run at home, for a platform that has no in-app conversation surface to host one.
+SmartThings capabilities are registered with CopilotKit as **frontend tools**: the agent decides to call `set_level`, the browser runs it against `api.smartthings.com` with the user's token, and the agent gets the result back.
 
 | Tool | What it does |
 |---|---|
@@ -36,22 +34,7 @@ SmartThings capabilities are registered with CopilotKit as **frontend tools**: t
 | `confirm_command` | Locks, doors, garage doors, valves and security systems. Off by default (the card says so and points at the settings); when on, asks the person before anything happens. |
 | `run_scene` | Runs a scene after the person confirms. |
 
-More detail (the frontend-tool loop, the cards, sign-in, the agent's router fixes, SmartThings behaviours to expect): [docs/how-it-works.md](docs/how-it-works.md).
-
-## Security model
-
-An agent unlocking a door is the failure that matters, so:
-
-1. **Deny by default.** Commands for `lock`, `garageDoorControl`, `doorControl`, `securitySystem` and `valve` are refused unless the user turns that capability on in *Safety settings*. Until then, a request ends in a card saying the control is off, with a button that opens the settings; turning it on never runs anything by itself.
-2. **A person confirms.** When it is on, the agent can only *ask*: a card shows what will happen, and the command runs only when the person presses the button. The policy is checked again at that moment.
-3. **No side doors.** A device that has any of those capabilities can't be commanded through any other tool (some valves also expose `switch`), and `execute_command` only reaches an allowlist. `execute`, `ocf`, firmware updates, ovens and vendor-specific capabilities are out of reach.
-4. **Scenes always ask**, because a scene can unlock a door and the public API doesn't reliably say what a scene contains. (When the agent runs one, a confirmation card asks; on a scene card the person's own press is the confirmation.)
-5. **The token stays in the browser.** The agent sees tool arguments and results only. Tokens are kept in memory, not storage.
-6. **Card controls follow the same rules.** A button or slider on a card runs through the same tool handlers as the agent, and locks, doors, valves and security systems get no controls on their cards at all.
-
-What the model *does* see: with a hosted model, the conversation, device and room names, and device states go to that model provider, as with any cloud assistant. Never your SmartThings token. A local model keeps all of it at home (see "not yet verified" below).
-
-The list of confirm-only capabilities is hard-coded on purpose: the API's per-command `sensitive` flag isn't a safety signal (`lock.unlock` reports `"sensitive": false`). The rules live in one small file, [`policy.ts`](packages/smartthings-agui/src/policy.ts), with tests in [`tools.test.ts`](packages/smartthings-agui/test/tools.test.ts) and the confirmation flow tested end to end in [`roundTrip.test.tsx`](packages/smartthings-agui/test/integration/roundTrip.test.tsx).
+More detail: [docs/how-it-works.md](docs/how-it-works.md).
 
 ## Use it in your app
 
@@ -83,9 +66,7 @@ export function App() {
 }
 ```
 
-- **Agent:** any AG-UI agent works, since the tools run in the browser. To use the reference agent in [`agent/`](agent/), see the demo below and allow your app's origin with `AGENT_ORIGINS=http://localhost:3000`.
-- **Locks, doors, valves, security:** off by default. Turn them on per capability with `useSmartThingsTools(client, { confirmCapabilities: ["lock"] })`; each command still waits for the person's confirmation. Pass `onOpenSettings` to let the "turned off" card open your settings.
-- **Sign-in:** a [personal access token](https://account.smartthings.com/tokens) is enough to start (it lasts 24 hours). For OAuth, `beginSignIn` and `OAuthSession` handle the browser side, and [`agent/token_exchange.py`](agent/token_exchange.py) holds the client secret ([details](docs/how-it-works.md#sign-in)).
+Any AG-UI agent works, since the tools run in the browser. Locks, doors, valves, security are off by default. Turn them on per capability with `useSmartThingsTools(client, { confirmCapabilities: ["lock"] })`; each command still waits for the person's confirmation.
 
 ## Try the demo
 
@@ -99,9 +80,15 @@ cp .env.example .env    # set AGENT_API_KEY and AGENT_MODEL (and AGENT_API_BASE 
 npm run dev             # starts the agent and the app: http://localhost:5173
 ```
 
-Sign in with a [personal access token](https://account.smartthings.com/tokens): give it the Devices, Scenes and Locations permissions. Then try "Show me the living room" or "What scenes do I have?".
+The demo app let's you sign in with either a [personal access token](https://account.smartthings.com/tokens) or using an [OAuth-In App SmartThings app](https://developer.smartthings.com/docs/getting-started/quickstart#for-integration-development-oauth-20).
 
-**Optional: "Sign in with SmartThings" (OAuth), about two minutes:**
+### Personal Access Token 
+
+Create a new [personal access token](https://account.smartthings.com/tokens) and give it the Devices, Scenes and Locations permissions.
+
+### OAuth Login
+
+This allows you to login without having to renew your token manually:
 
 1. Run `npx @smartthings/cli apps:create` (the first run signs you in to SmartThings in the browser) and choose **OAuth-In App**.
 2. Enter any display name and description; leave the icon and target URL empty.
@@ -110,7 +97,20 @@ Sign in with a [personal access token](https://account.smartthings.com/tokens): 
 5. Put the client ID and secret it prints in `.env` as `SMARTTHINGS_CLIENT_ID` and `SMARTTHINGS_CLIENT_SECRET` (the secret is shown only once).
 6. Restart `npm run dev`. The sign-in page now has **Sign in with SmartThings**.
 
-**Try it without touching real hardware:** create a few [virtual devices](docs/how-it-works.md#testing-against-virtual-devices), put them in their own room, and ask to see that room. To use the app from a phone, see [Trying it on a phone](docs/how-it-works.md#trying-it-on-a-phone).
+## Security model
+
+To prevent an agent from performing unwanted actions, there is a couple of limitations by design:
+
+1. **Deny by default.** Commands for `lock`, `garageDoorControl`, `doorControl`, `securitySystem` and `valve` are refused unless the user turns that capability on in *Safety settings*. Until then, a request ends in a card saying the control is off, with a button that opens the settings; turning it on never runs anything by itself.
+2. **A person confirms.** When it is on, the agent can only *ask*: a card shows what will happen, and the command runs only when the person presses the button. The policy is checked again at that moment.
+3. **No side doors.** A device that has any of those capabilities can't be commanded through any other tool (some valves also expose `switch`), and `execute_command` only reaches an allowlist. `execute`, `ocf`, firmware updates, ovens and vendor-specific capabilities are out of reach.
+4. **Scenes always ask**, because a scene can unlock a door and the public API doesn't reliably say what a scene contains. (When the agent runs one, a confirmation card asks; on a scene card the person's own press is the confirmation.)
+5. **The token stays in the browser.** The agent sees tool arguments and results only. Tokens are kept in memory, not storage.
+6. **Card controls follow the same rules.** A button or slider on a card runs through the same tool handlers as the agent, and locks, doors, valves and security systems get no controls on their cards at all.
+
+What the model *does* see: with a hosted model, the conversation, device and room names, and device states go to that model provider, as with any cloud assistant. Never your SmartThings token. A local model keeps all of it at home (see "not yet verified" below).
+
+The list of confirm-only capabilities is hard-coded on purpose: the API's per-command `sensitive` flag isn't a safety signal (`lock.unlock` reports `"sensitive": false`). The rules live in one small file, [`policy.ts`](packages/smartthings-agui/src/policy.ts), with tests in [`tools.test.ts`](packages/smartthings-agui/test/tools.test.ts) and the confirmation flow tested end to end in [`roundTrip.test.tsx`](packages/smartthings-agui/test/integration/roundTrip.test.tsx).
 
 ## Tests
 
@@ -119,25 +119,7 @@ npm test                    # vitest: unit + integration (starts the agent with 
 (cd agent && uv run pytest) # agent, router shims, token exchange
 ```
 
-The integration tests run real CopilotKit and `@ag-ui/client` against the real Python agent over HTTP, with only the model and `api.smartthings.com` replaced, and click through the confirmation card. `apps/demo/e2e/drive.mjs` drives the real app in headless Chromium against real SmartThings virtual devices.
-
-## What was tested, and what wasn't
-
-Tested (13 Oct 2026): `@copilotkit/react-core` 1.79.0, `@ag-ui/client` 1.0.2, `llama-index-protocols-ag-ui` 0.5.0, `ag-ui-protocol` 1.0.0, `@copilotkit/a2ui-renderer` 1.79.0 (`@a2ui/web_core` 0.10.4, A2UI v0.9), React 19.3, Node 24.14, Python 3.14.7; a hosted OpenAI-compatible model against SmartThings virtual devices (switch, dimmer, colour bulb, lock, thermostat, contact and multi sensors, garage door), including multi-turn conversations, confirmations and refusals. Room and scene cards, card controls without an agent turn, and cards updating after the agent changes the same device. OAuth end to end with a real OAuth-In app (created with the CLI): sign-in, code exchange, commands with the OAuth token, and a token refresh followed by another command.
-
-Also not yet verified: whether SmartThings rotates refresh tokens (both cases are handled), and refresh after a real 24-hour expiry (the refresh was triggered manually).
-
-Browsers: the same end-to-end run (room cards, a card control, a confirmed unlock), on the production build, passed in Google Chrome 155 (headed), Firefox 146 and WebKit 26 (Safari's engine) through Playwright 1.58.2, and in phone emulation for an iPhone 15 (WebKit) and a Pixel 7 (Chromium). By hand: Safari on macOS and Safari on an iPhone, signing in with OAuth, over HTTPS on a home network.
-
-Not yet verified:
-- Local models (LM Studio and similar): planned after the initial release. So far one hosted model has been tested end to end.
-- Real hardware (only virtual devices were commanded). Scenes were verified with a scene of virtual devices: the agent runs it only after the confirmation press, Cancel leaves everything as it was, and a scene card's button runs it.
-- Android phones other than in emulation.
-- Capability versions other than 1: handled, and unit-tested with a made-up version 2, but no real device reporting one was available. Devices with several components (some ovens, hubs) are addressed through their `main` component only.
-
-## Known upstream issues
-
-Building this turned up bugs in the LlamaIndex AG-UI router (system prompt duplicated every run, client context ignored, tool history sent as text so models stop calling tools, tool parameter types lost) and a typing gap in CopilotKit's A2UI renderer. The reference agent works around the router issues in [`agent/router.py`](agent/router.py), and tests pin each upstream behaviour so a release that fixes it shows up as a failing test.
+The integration tests run real CopilotKit and `@ag-ui/client` against the real Python agent over HTTP, with only the model and `api.smartthings.com` replaced, and click through the confirmation card. `apps/demo/e2e/drive.mjs` drives the app in headless Chromium against registered SmartThings virtual devices.
 
 ## Background
 
